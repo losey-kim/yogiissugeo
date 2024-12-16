@@ -1,5 +1,6 @@
 package com.personal.yogiissugeo.utils
 
+import androidx.compose.ui.res.stringResource
 import com.personal.yogiissugeo.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,14 @@ suspend fun <T> safeApiCall(apiCall: suspend () -> Response<T>): Result<T> {
                 } ?: Result.failure(ResourceException(R.string.error_unknown)) // 응답 본문이 null일 경우
             } else {
                 // API 호출이 실패한 경우 실패로 반환
-                Result.failure(ResourceException(R.string.error_unknown))
+                val errorMessage = response.errorBody()?.string() ?: ""
+                when (response.code()) {
+                    400 -> Result.failure(ResourceException(R.string.error_bad_request, errorMessage))
+                    401 -> Result.failure(ResourceException(R.string.error_unauthorized, errorMessage))
+                    404 -> Result.failure(ResourceException(R.string.error_not_found, errorMessage))
+                    500 -> Result.failure(ResourceException(R.string.error_server, errorMessage))
+                    else -> Result.failure(ResourceException(R.string.error_unknown, errorMessage))
+                }
             }
         } catch (e: TimeoutException) {
             // 요청 시간이 초과된 경우의 예외 처리

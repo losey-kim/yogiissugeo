@@ -2,6 +2,7 @@ package com.personal.yogiissugeo.di
 
 import com.personal.yogiissugeo.BuildConfig
 import com.personal.yogiissugeo.data.api.ClothingBinApi
+import com.personal.yogiissugeo.data.api.GenericClothingBinApiHandler
 import com.personal.yogiissugeo.data.api.GeocodingApi
 import dagger.Module
 import dagger.Provides
@@ -90,6 +91,20 @@ object NetworkModule {
     @Singleton
     fun provideClothingBinApi(@ClothingBinRetrofit retrofit: Retrofit): ClothingBinApi {
         return retrofit.create(ClothingBinApi::class.java) // Retrofit으로 API 인터페이스 구현체 생성
+    }
+
+    /**
+     * GenericClothingBinApiHandler를 제공합니다.
+     *
+     * @param clothingBinApi ClothingBinApi 인스턴스.
+     * @return GenericClothingBinApiHandler 인스턴스.
+     *
+     * - GenericClothingBinApiHandler는 ClothingBinApi를 활용하여 구체적인 API 호출을 관리하는 클래스입니다.
+     */
+    @Provides
+    @Singleton
+    fun provideGenericClothingBinApiHandler(clothingBinApi: ClothingBinApi): GenericClothingBinApiHandler {
+        return GenericClothingBinApiHandler(clothingBinApi)
     }
 
     /**

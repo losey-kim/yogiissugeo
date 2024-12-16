@@ -1,6 +1,34 @@
 <resources>
-    <string name="app_name">YogiIssugeo</string>
+    <string name="app_name">여기있수거</string>
+    <!-- 네트워크 오류 -->
     <string name="error_timeout">요청 시간이 초과되었습니다.</string>
     <string name="error_network">네트워크 연결에 문제가 있습니다.</string>
-    <string name="error_unknown">알 수 없는 오류가 발생했습니다.</string>
+    <string name="error_unknown">알 수 없는 오류가 발생했습니다. 다시 시도해주세요.</string>
+    <string name="error_bad_request">요청이 올바르지 않습니다. 입력 정보를 다시 확인해주세요.</string>
+    <string name="error_unauthorized">인증되지 않은 요청입니다</string>
+    <string name="error_not_found">요청한 데이터를 찾을 수 없습니다. 입력 정보를 확인해주세요.</string>
+    <string name="error_server">서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.</string>
+    <!-- 네트워크 오류 -->
+
+    <!-- 구 이름 -->
+    <string name="select_district">구 선택</string>
+    <string name="guro">구로구</string>
+    <string name="gwanak">관악구</string>
+    <string name="seodaemun">서대문구</string>
+    <!-- 구 이름 -->
+
+    <!-- ClothingBinScreen -->
+    <string name="page_load">로드</string>
+    <string name="page_control_previous">이전 페이지</string>
+    <string name="page_control_next">다음 페이지</string>
+    <string name="page_control_current">페이지: %1$d</string>
+    <!-- ClothingBinScreen -->
+
+    <!-- NaverMapScreen -->
+
+    <!-- NaverMapScreen -->
+
+    <!-- Permission -->
+    <string name="permission_location">위치 권한이 필요합니다.</string>
+    <!-- Permission -->
 </resources>

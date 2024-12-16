@@ -3,148 +3,112 @@ package com.personal.yogiissugeo.ui.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personal.yogiissugeo.R
+import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
 import com.personal.yogiissugeo.data.repository.ClothingBinRepository
 import com.personal.yogiissugeo.utils.ResourceException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * 의류 수거함 데이터를 관리하는 ViewModel 클래스.
+ * API 호출, 상태 관리, 사용자 상호작용 처리 등을 담당합니다.
+ *
+ * @property clothingBinRepository 의류 수거함 데이터를 가져오는 Repository.
+ */
 @HiltViewModel
 class BinListViewModel @Inject constructor(
     private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레포지토리
 ) : ViewModel() {
-    // 로딩 상태를 나타내는 MutableStateFlow
+    val itemsPerPage = 3 // 페이지당 항목 수
+
+    /**
+     * 로딩 상태를 나타냅니다.
+     * true일 경우 데이터 로딩 중, false일 경우 로딩 완료 상태.
+     */
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading // 외부에서 접근할 수 있도록 StateFlow로 제공
+    val isLoading: StateFlow<Boolean> = _isLoading
 
-    // 의류 수거함 데이터를 저장하는 MutableStateFlow
+    /**
+     * 의류 수거함 데이터를 저장하는 상태.
+     * 서버에서 가져온 데이터를 리스트 형태로 저장.
+     */
     private val _clothingBins = MutableStateFlow<List<ClothingBin>>(emptyList())
-    val clothingBins: StateFlow<List<ClothingBin>> = _clothingBins // 외부에서 접근할 수 있도록 StateFlow로 제공
+    val clothingBins: StateFlow<List<ClothingBin>> = _clothingBins
 
-    // 에러 메시지 상태를 저장하는 MutableStateFlow
+    /**
+     * 에러 메시지를 저장하는 상태.
+     */
     private val _errorMessage = MutableStateFlow<Int?>(null)
-    val errorMessage: StateFlow<Int?> = _errorMessage // 리소스 ID를 통해 에러 메시지를 처리
+    val errorMessage: StateFlow<Int?> = _errorMessage
 
-    // 현재 페이지 상태를 나타내는 MutableStateFlow
+    /**
+     * 현재 페이지 번호를 나타내는 상태.
+     * 페이지 전환 시 업데이트됨.
+     */
     private val _currentPage = MutableStateFlow(1)
-    val currentPage: StateFlow<Int> = _currentPage // 외부에서 접근할 수 있도록 StateFlow로 제공
+    val currentPage: StateFlow<Int> = _currentPage
 
     /**
-     * 의류 수거함 데이터를 로드하는 함수
+     * 선택한 구의 API 소스를 저장하는 상태.
+     */
+    private val _selectedApiSource = MutableStateFlow<ApiSource?>(null)
+    val selectedApiSource: StateFlow<ApiSource?> = _selectedApiSource.asStateFlow()
+
+    /**
+     * 특정 구와 페이지의 의류 수거함 데이터를 서버에서 가져옵니다.
      *
-     * @param page 요청할 페이지 번호
-     * @param perPage 한 페이지에 표시할 항목 수
+     * @param district 요청할 구의 API 소스.
+     * @param page 요청할 페이지 번호.
+     * @param perPage 한 페이지당 데이터 개수.
      */
-    fun loadClothingBins2(page: Int, perPage: Int) {
+    private fun loadClothingBins(district: ApiSource, page: Int, perPage: Int) {
         viewModelScope.launch {
-            _isLoading.value = true // 로딩 상태를 true로 설정
-            _errorMessage.value = null // 이전 에러 메시지를 초기화
-
-            // API 요청
-            val binsResult = clothingBinRepository.getClothingBins(page, perPage)
-            binsResult.onSuccess { response ->
-                val bins = response.data ?: emptyList()
-
-                // Bin 데이터에 좌표를 추가
-                val enrichedBins = bins.mapNotNull { bin ->
-                    val correctedAddress = correctAddress(bin.address) // 주소 정제
-                    val geoResult = clothingBinRepository.getCoordinates(correctedAddress) // 좌표 요청
-
-                    // 주소 좌표 변환 결과 처리
-                    geoResult.fold(
-                        onSuccess = { geoData ->
-                            val coordinates = geoData.addresses.firstOrNull() // 첫 번째 주소 좌표 가져오기
-                            bin.copy(
-                                address = correctedAddress, // 정제된 주소로 업데이트
-                                latitude = coordinates?.y,  // 위도
-                                longitude = coordinates?.x  // 경도
-                            )
-                        },
-                        onFailure = {
-                            // 좌표 변환 실패 시 에러 메시지를 리소스 ID로 설정
-                            if (it is ResourceException) {
-                                _errorMessage.value = it.resourceId
-                            } else {
-                                _errorMessage.value = R.string.error_unknown // 알 수 없는 에러 처리
-                            }
-                            null // 실패한 Bin은 제외
-                        }
-                    )
-                }
-
-                _clothingBins.value = enrichedBins // 좌표가 추가된 의류 수거함 리스트를 상태에 반영
-            }.onFailure {
-                // API 호출 실패 시 에러 처리
-                if (it is ResourceException) {
-                    _errorMessage.value = it.resourceId // 에러 메시지를 리소스 ID로 설정
-                } else {
-                    _errorMessage.value = R.string.error_unknown // 알 수 없는 에러 처리
-                }
-            }
-
-            _isLoading.value = false // 로딩 상태를 false로 설정
-        }
-    }
-
-    /**
-     * 의류 수거함 데이터를 로드하는 함수
-     */
-    fun loadClothingBins(page: Int, perPage: Int) {
-        viewModelScope.launch {
-            _isLoading.value = true // 로딩 상태를 true로 설정
+            _isLoading.value = true // 로딩 시작
             _errorMessage.value = null // 에러 메시지 초기화
 
-            // API 요청
-            val binsResult = clothingBinRepository.getClothingBins(page, perPage)
-            binsResult.onSuccess { response ->
-                val enrichedBins = processBinData(response.data ?: emptyList())
-                _clothingBins.value = enrichedBins // 좌표가 추가된 의류 수거함 리스트를 상태에 반영
+            val binsResult = clothingBinRepository.getClothingBins(district, page, perPage)
+            binsResult.onSuccess { bins ->
+                bins.formattedData?.let {
+                    _clothingBins.value = bins.formattedData // 데이터를 상태에 반영
+                }
             }.onFailure {
-                handleApiFailure(it) // 실패 처리
+                handleApiFailure(it) // 에러 처리
             }
 
-            _isLoading.value = false // 로딩 상태를 false로 설정
+            _isLoading.value = false // 로딩 종료
         }
     }
 
     /**
-     * 좌표 변환 및 에러 처리 함수
-     */
-    private suspend fun processBinData(bins: List<ClothingBin>): List<ClothingBin> {
-        // Bin 데이터에 좌표를 추가
-        return bins.mapNotNull { bin ->
-            val correctedAddress = correctAddress(bin.address) // 주소 정제
-            val geoResult = clothingBinRepository.getCoordinates(correctedAddress) // 좌표 요청
-
-            // 주소 좌표 변환 결과 처리
-            geoResult.fold(
-                onSuccess = { geoData ->
-                    val coordinates = geoData.addresses.firstOrNull() // 첫 번째 주소 좌표 가져오기
-                    bin.copy(
-                        address = correctedAddress, // 정제된 주소로 업데이트
-                        latitude = coordinates?.y, // 위도
-                        longitude = coordinates?.x //경도
-                    )
-                },
-                onFailure = {
-                    handleApiFailure(it) // 좌표 변환 실패 처리
-                    null // 실패한 Bin 제외
-                }
-            )
-        }
-    }
-
-    /**
-     * API 호출 실패 시 에러 처리
+     * API 호출 실패 시 에러를 처리합니다.
+     *
+     * @param error API 호출 중 발생한 예외.
+     * - ResourceException: 사용자에게 표시할 에러 메시지 ID를 설정.
+     * - 기타 예외: 기본 에러 메시지로 처리.
      */
     private fun handleApiFailure(error: Throwable) {
         _errorMessage.value = when (error) {
-            is ResourceException -> error.resourceId // 에러 메시지를 리소스 ID로 설정
-            else -> R.string.error_unknown // 기본 에러 처리
+            is ResourceException -> error.errorResId
+            else -> R.string.error_unknown
         }
+    }
+
+    /**
+     * 특정 구를 선택한 후 데이터를 초기 로드합니다.
+     *
+     * @param apiSource 선택된 구의 API 소스.
+     * @param page 초기 페이지 번호.
+     * @param perPage 한 페이지당 데이터 개수.
+     */
+    fun onDistrictSelected(apiSource: ApiSource, page: Int, perPage: Int) {
+        _selectedApiSource.value = apiSource
+        _currentPage.value = 1 // 페이지 초기화
+        loadClothingBins(apiSource, page, perPage)
     }
 
     /**
@@ -153,8 +117,10 @@ class BinListViewModel @Inject constructor(
      * @param perPage 한 페이지에 표시할 항목 수
      */
     fun goToNextPage(perPage: Int) {
-        _currentPage.value += 1 // 현재 페이지 번호 증가
-        loadClothingBins(_currentPage.value, perPage) // 다음 페이지 데이터 로드
+        val apiSource = _selectedApiSource.value ?: return
+        val nextPage = _currentPage.value + 1
+        _currentPage.value = nextPage // 현재 페이지 번호 증가
+        loadClothingBins(apiSource, _currentPage.value, perPage) // 다음 페이지 데이터 로드
     }
 
     /**
@@ -163,19 +129,9 @@ class BinListViewModel @Inject constructor(
      * @param perPage 한 페이지에 표시할 항목 수
      */
     fun goToPreviousPage(perPage: Int) {
-        if (_currentPage.value > 1) {
-            _currentPage.value -= 1 // 현재 페이지 번호 감소
-            loadClothingBins(_currentPage.value, perPage) // 이전 페이지 데이터 로드
-        }
-    }
-
-    /**
-     * 주소를 정제하는 함수 (예: "서울특별기"를 "서울특별시"로 수정)
-     *
-     * @param address 주소 문자열
-     * @return 정제된 주소
-     */
-    private fun correctAddress(address: String): String {
-        return address.replace("서울특별기", "서울특별시") // 오타 수정
+        val apiSource = _selectedApiSource.value ?: return
+        val prevPage = (_currentPage.value - 1).coerceAtLeast(1) // 현재 페이지 번호 감소
+        _currentPage.value = prevPage
+        loadClothingBins(apiSource, _currentPage.value, perPage) // 이전 페이지 데이터 로드
     }
 }

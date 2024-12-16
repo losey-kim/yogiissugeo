@@ -6,23 +6,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraUpdate
-import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.util.FusedLocationSource
+import com.personal.yogiissugeo.R
 
 @Composable
 fun NaverMapScreen(
@@ -66,7 +67,9 @@ fun NaverMapScreen(
     // AndroidView로 MapView를 Compose UI에 포함
     AndroidView(
         factory = { mapView }, // MapView를 생성
-        modifier = Modifier.fillMaxSize() // 화면 전체 크기로 MapView를 표시
+        modifier = Modifier
+            .fillMaxSize()
+            .safeDrawingPadding() // 화면 전체 크기로 MapView를 표시
     ) { mapView ->
         // MapView가 준비되었을 때 호출되는 콜백
         mapView.getMapAsync { naverMap ->
@@ -79,7 +82,12 @@ fun NaverMapScreen(
 }
 
 // 지도 초기화 및 설정 함수
-private fun setupNaverMap(naverMap: NaverMap, latitude: Double, longitude: Double, locationSource: FusedLocationSource) {
+private fun setupNaverMap(
+    naverMap: NaverMap,
+    latitude: Double,
+    longitude: Double,
+    locationSource: FusedLocationSource
+) {
     naverMap.uiSettings.isCompassEnabled = true // 나침반 버튼 활성화
     naverMap.uiSettings.isLocationButtonEnabled = true //현위치 버튼 활성화
     // 지도의 카메라를 특정 좌표로 이동
@@ -101,11 +109,9 @@ private fun setupNaverMapWithLocationTracking(
     naverMap: NaverMap,
     locationSource: FusedLocationSource
 ) {
-    naverMap.locationSource = locationSource // 위치 소스 설정
-    naverMap.locationTrackingMode = LocationTrackingMode.Follow // 위치 추적 모드 설정
-
     // 지도 초기 설정 (옵션)
     naverMap.uiSettings.isLocationButtonEnabled = true // 위치 버튼 활성화
+    naverMap.locationSource = locationSource // 위치 소스 설정
 }
 
 // 권한 요청 및 결과 처리
@@ -121,7 +127,7 @@ fun HandlePermissions() {
             if (!isGranted) { // 권한이 거부된 경우
                 Toast.makeText(
                     context,
-                    "위치 권한이 필요합니다.", // 사용자에게 권한 필요 메시지 표시
+                    R.string.permission_location, // 사용자에게 권한 필요 메시지 표시
                     Toast.LENGTH_SHORT
                 ).show()
             }
