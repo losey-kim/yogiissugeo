@@ -73,9 +73,7 @@ class BinListViewModel @Inject constructor(
 
             val binsResult = clothingBinRepository.getClothingBins(district, page, perPage)
             binsResult.onSuccess { bins ->
-                bins.formattedData?.let {
-                    _clothingBins.value = bins.formattedData // 데이터를 상태에 반영
-                }
+                _clothingBins.value = bins
             }.onFailure {
                 handleApiFailure(it) // 에러 처리
             }

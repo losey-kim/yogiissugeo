@@ -1,13 +1,14 @@
 package com.personal.yogiissugeo.data.repository
 
-import com.personal.yogiissugeo.data.api.ClothingBinApi
 import com.personal.yogiissugeo.data.api.GeocodingApi
-import com.personal.yogiissugeo.data.model.ClothingBinResponse
 import com.personal.yogiissugeo.data.model.GeocodingResponse
 import com.personal.yogiissugeo.BuildConfig
 import com.personal.yogiissugeo.data.api.GenericClothingBinApiHandler
+import com.personal.yogiissugeo.data.local.dao.ClothingBinDao
+import com.personal.yogiissugeo.data.local.dao.DistrictDataCountDao
 import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
+import com.personal.yogiissugeo.data.model.DistrictDataCount
 import com.personal.yogiissugeo.utils.AddressCorrector
 import com.personal.yogiissugeo.utils.safeApiCall
 import retrofit2.Response
@@ -16,68 +17,166 @@ import javax.inject.Inject
 /**
  * 의류 수거함 데이터를 관리하는 Repository 클래스
  *
- * @property clothingBinApi 의류 수거함 관련 API 호출을 처리하는 객체
+ * @property apiHandler 의류 수거함 관련 API 호출을 처리하는 객체
  * @property geocodingApi 주소를 좌표로 변환하는 Geocoding API 호출을 처리하는 객체
+ * @property clothingBinDao 의류 수거함 데이터를 저장하고 불러오는 DAO 객체
+ * @property districtDataCountDao 특정 구의 데이터 카운트를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
     private val apiHandler: GenericClothingBinApiHandler,
-    private val clothingBinApi: ClothingBinApi,    // 의류 수거함 API
-    private val geocodingApi: GeocodingApi         // Geocoding API
+    private val geocodingApi: GeocodingApi,
+    private val clothingBinDao: ClothingBinDao,
+    private val districtDataCountDao: DistrictDataCountDao,
 ) {
 
     /**
-     * 특정 구의 의류 수거함 데이터를 가져옵니다.
+     * 특정 구의 데이터를 가져옴 (페이징 처리)
      *
-     * @param apiSource 호출할 구의 ApiSource
-     * @param page 요청할 페이지 번호
-     * @param perPage 한 페이지당 데이터 개수
-     * @return ClothingBinResponse를 포함한 Result 객체
+     * @param apiSource API 소스 정보
+     * @param page 요청한 페이지 번호 (1부터 시작)
+     * @param perPage 페이지당 데이터 개수
+     * @return 요청된 페이지에 대한 의류 수거함 리스트
      */
     suspend fun getClothingBins(
         apiSource: ApiSource,
         page: Int,
         perPage: Int
-    ): Result<ClothingBinResponse> {
+    ): Result<List<ClothingBin>> {
+        // 1. 총 데이터 카운트 확인 (Room에서 가져오기)
+        // 데이터가 없는 경우 API 호출
+        val totalCount = districtDataCountDao.getTotalCount(apiSource.name) ?: return fetchAndStoreBinsFromApi(apiSource, page, perPage)
+
+        // 2. 페이징 범위 확인
+        if (isPageOutOfBounds(page, perPage, totalCount)) {
+            // 요청한 페이지가 데이터 범위를 초과한 경우 빈 리스트 반환
+            return Result.success(emptyList())
+        }
+
+        // 3. Room에서 데이터 가져오기
+        val offset = (page - 1) * perPage
+        val cachedBins = clothingBinDao.getBinsByDistrict(apiSource.name, perPage, offset)
+        val storedCount = clothingBinDao.getStoredCountForDistrict(apiSource.name)
+
+        // 4. 캐싱된 데이터가 충분한 경우 바로 반환
+        return if (cachedBins.isNotEmpty() && isDataSufficient(offset, perPage, storedCount)) {
+            Result.success(cachedBins)
+        } else {
+            // 5. 부족한 경우 API 호출
+            fetchAndStoreBinsFromApi(apiSource, page, perPage)
+        }
+    }
+
+    /**
+     * API를 호출하여 데이터를 가져오고 Room에 저장
+     *
+     * @param apiSource API 소스 정보
+     * @param page 요청한 페이지 번호
+     * @param perPage 페이지당 데이터 개수
+     * @return API 호출 결과로 가져온 의류 수거함 리스트
+     */
+    private suspend fun fetchAndStoreBinsFromApi(
+        apiSource: ApiSource,
+        page: Int,
+        perPage: Int
+    ): Result<List<ClothingBin>> {
         return safeApiCall {
-            // API 호출: 특정 소스에서 데이터를 가져옴
+            // API로부터 데이터 가져오기
             val response = apiHandler.fetchClothingBins(apiSource, page, perPage)
-
-            // API 응답 본문(body) 추출
             val body = response.body()
+            val formattedData = body?.formattedData.orEmpty()
 
-            // 위도와 경도가 없는 데이터를 필터링
-            val itemsWithoutCoordinates = body?.formattedData?.filter {
-                it.latitude == null || it.longitude == null
-            } ?: emptyList()
+            // 1. 위도와 경도가 없는 데이터를 필터링 및 처리
+            val binsWithCoordinates = processMissingCoordinates(formattedData)
 
-            // 필터링된 데이터에 대해 좌표 요청 및 병합
-            val updatedItems = itemsWithoutCoordinates.mapNotNull { bin ->
-                val correctedAddress = bin.address?.let { AddressCorrector.correct(it) } //주소 정제
-                val geoResult = correctedAddress?.let { getCoordinates(correctedAddress) } // 좌표 요청
+            // 2. 기존 데이터와 업데이트된 데이터를 병합
+            val allBins = mergeBins(formattedData, binsWithCoordinates)
 
-                // 주소 좌표 변환 결과 처리
-                geoResult?.fold(
-                    onSuccess = { geoData ->
-                        val coordinates = geoData.addresses.firstOrNull() // 첫 번째 주소 좌표 가져오기
-                        bin.copy(
-                            address = correctedAddress, // 정제된 주소로 업데이트
-                            latitude = coordinates?.y, //위도
-                            longitude = coordinates?.x //경도
-                        )
-                    },
-                    onFailure = { null } // 실패 시 null
-                )
-            }
+            // 3. Room에 데이터 저장 및 총 데이터 카운트 업데이트
+            saveBinsToDatabase(apiSource.name, allBins, body?.totalCount ?: 0)
 
-            // 기존 데이터와 병합된 데이터를 결합하여 최종 리스트 생성
-            val allBins = mergeBins(body?.formattedData ?: emptyList(), updatedItems)
+            // 4. 응답 생성 및 반환
+            Response.success(allBins, response.raw())
 
             // 새로운 Response 생성
             Response.success(
-                body?.copy(formattedData = allBins), // 변환된 데이터를 포함한 새로운 Body
+                allBins, // 변환된 데이터를 포함한 새로운 Body
                 response.raw() // 기존 HTTP 응답 메타데이터 유지
             )
         }
+    }
+
+    /**
+     * 요청한 페이지가 데이터 범위를 초과했는지 확인
+     *
+     * @param page 요청한 페이지 번호
+     * @param perPage 페이지당 데이터 개수
+     * @param totalCount 전체 데이터 개수
+     * @return 페이지가 유효하지 않을 경우 true
+     */
+    private fun isPageOutOfBounds(page: Int, perPage: Int, totalCount: Int): Boolean {
+        return (page - 1) * perPage >= totalCount && totalCount > 0
+    }
+
+    /**
+     * 캐싱된 데이터가 요청한 페이지 범위에 충분한지 확인
+     *
+     * @param offset 데이터 시작 위치
+     * @param perPage 페이지당 데이터 개수
+     * @param storedCount 저장된 데이터 개수
+     * @return 데이터가 충분할 경우 true
+     */
+    private fun isDataSufficient(offset: Int, perPage: Int, storedCount: Int): Boolean {
+        return offset + perPage <= storedCount
+    }
+
+    /**
+     * 위도와 경도가 없는 데이터를 처리 (주소 정제 및 좌표 변환)
+     *
+     * @param data API에서 가져온 의류 수거함 데이터 리스트
+     * @return 좌표가 업데이트된 의류 수거함 데이터 리스트
+     */
+    private suspend fun processMissingCoordinates(data: List<ClothingBin>): List<ClothingBin> {
+        return data.filter { it.latitude == null || it.longitude == null }
+            .mapNotNull { bin ->
+                // 주소 정제
+                val correctedAddress = bin.address?.let(AddressCorrector::correct)
+                // 좌표 요청 및 결과 처리
+                correctedAddress?.let { address ->
+                    getCoordinates(address).fold(
+                        onSuccess = { geoData ->
+                            geoData.addresses.firstOrNull()?.let { coordinates ->
+                                // 위도/경도를 업데이트한 새 객체 반환
+                                bin.copy(
+                                    address = address,
+                                    latitude = coordinates.y,
+                                    longitude = coordinates.x
+                                )
+                            }
+                        },
+                        onFailure = { null } // 실패 시 null
+                    )
+                }
+            }
+    }
+
+    /**
+     * 데이터를 Room에 저장 및 카운트 업데이트
+     *
+     * @param districtName 구 이름
+     * @param bins 의류 수거함 데이터 리스트
+     * @param totalCount API에서 반환된 전체 데이터 개수
+     */
+    private suspend fun saveBinsToDatabase(
+        districtName: String,
+        bins: List<ClothingBin>,
+        totalCount: Int
+    ) {
+        // 데이터 삽입
+        clothingBinDao.insertBins(bins)
+        // 총 데이터 카운트 삽입 또는 업데이트
+        districtDataCountDao.insertOrUpdateCount(
+            DistrictDataCount(districtName, totalCount)
+        )
     }
 
     /**

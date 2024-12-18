@@ -21,7 +21,7 @@ class GenericClothingBinParser(private val apiSource: ApiSource) : ClothingBinPa
             ApiSource.GURO -> parseGuro(data) // 구로구 데이터 파싱
             ApiSource.GWANAK -> parseGwanak(data) // 관악구 데이터 파싱
             ApiSource.SEODAEMUN -> parseSeodaemun(data) // 서대문구 데이터 파싱
-            else -> throw IllegalArgumentException("지원하지 않는 데이터: $apiSource")
+            ApiSource.DONGJAK -> parseDongjak(data) // 동작구 데이터 파싱
         }
     }
 
@@ -33,12 +33,10 @@ class GenericClothingBinParser(private val apiSource: ApiSource) : ClothingBinPa
      */
     private fun parseGuro(data: Map<String, Any>): ClothingBin {
         return ClothingBin(
-            id = data["연번"] as? Int ?: 0, // "연번" 필드를 정수 ID로 변환, 없으면 기본값 0
+            id = apiSource.name + (data["연번"] as? Double)?.toInt() , // "연번" 필드를 해당 구 명을 붙여 ID로 변환
             address = data["주소"] as? String, // "주소" 필드를 문자열로 변환
-            latitude = null, // 구로구 데이터에는 위도 정보 없음
-            longitude = null, // 구로구 데이터에는 경도 정보 없음
             administrativeDistrict = data["행정동"] as? String, // "행정동" 필드를 문자열로 변환
-            managingOrganization = null // 구로구 데이터에는 관리 기관 정보 없음
+            district = apiSource.name //구로구 데이터 정보 추가
         )
     }
 
@@ -50,12 +48,11 @@ class GenericClothingBinParser(private val apiSource: ApiSource) : ClothingBinPa
      */
     private fun parseGwanak(data: Map<String, Any>): ClothingBin {
         return ClothingBin(
-            id = (data["의류수거함"] as? String)?.split("-")?.last()?.toIntOrNull() ?: 0, // "의류수거함" 필드에서 ID 추출
+            id = apiSource.name + data["의류수거함"] as? String, // "의류수거함" 필드를 해당 구 명을 붙여 ID로 변환
             address = data["위치"] as? String, // "위치" 필드를 문자열로 변환
             latitude = data["위도"] as? String, // "위도" 필드의 값을 문자열로 변환
             longitude = data["경도"] as? String, // "경도" 필드의 값을 문자열로 변환
-            administrativeDistrict = null, // 관악구 데이터에는 행정구역 정보 없음
-            managingOrganization = null // 관악구 데이터에는 관리 기관 정보 없음
+            district = apiSource.name //관악구 데이터 정보 추가
         )
     }
 
@@ -67,12 +64,13 @@ class GenericClothingBinParser(private val apiSource: ApiSource) : ClothingBinPa
      */
     private fun parseSeodaemun(data: Map<String, Any>): ClothingBin {
         return ClothingBin(
-            id = data["연번"] as? Int ?: 0, // "연번" 필드를 정수 ID로 변환, 없으면 기본값 0
+            id = apiSource.name + (data["연번"] as? Double)?.toInt(), // "연번" 필드를 해당 구 명을 붙여 ID로 변환
             address = data["설치장소(도로명)"] as? String, // "설치장소(도로명)" 필드를 문자열로 변환
             latitude = data["위도"] as? String, // "위도" 필드의 값을 문자열로 변환
             longitude = data["경도"] as? String, // "경도" 필드의 값을 문자열로 변환
             administrativeDistrict = data["행정동"] as? String, // "행정동" 필드를 문자열로 변환
-            managingOrganization = data["관리단체"] as? String // "관리단체" 필드를 문자열로 변환
+            managingOrganization = data["관리단체"] as? String, // "관리단체" 필드를 문자열로 변환
+            district = apiSource.name //서대문구 데이터 정보 추가
         )
     }
 }

@@ -18,6 +18,8 @@ naverMap = "3.20.0"
 navigation = "2.7.3"
 location = "21.0.1"
 uiTextGoogleFonts = "1.7.6"
+roomCommon = "2.6.1"
+roomKtx = "2.6.1"
 
 [libraries]
 # AndroidX
@@ -60,6 +62,11 @@ naver-map = { group = "com.naver.maps", name = "map-sdk", version.ref = "naverMa
 
 #Google 위치 서비스
 play-service-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "location" }
+
+#Room
+androidx-room-common = { group = "androidx.room", name = "room-common", version.ref = "roomCommon" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "roomKtx" }
 
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }

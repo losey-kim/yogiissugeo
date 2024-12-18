@@ -105,6 +105,11 @@ dependencies {
     //구글 위치 서비스
     implementation(libs.play.service.location)
 
+    //Room
+    implementation(libs.androidx.room.common)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+
     // Test
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
