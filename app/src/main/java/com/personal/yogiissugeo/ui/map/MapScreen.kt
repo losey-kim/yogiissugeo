@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -33,6 +36,7 @@ fun NaverMapScreen(
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val activity = context as ComponentActivity // 현재 Activity 가져오기
     val mapView = remember { MapView(context) } // MapView를 remember로 한 번만 생성하여 재사용
+    var naverMapState by remember { mutableStateOf<NaverMap?>(null) } // NaverMap 상태 관리
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
     val bundle = remember { Bundle() } // 상태 복원을 위해 초기화된 Bundle
 
@@ -73,12 +77,15 @@ fun NaverMapScreen(
     ) { mapView ->
         // MapView가 준비되었을 때 호출되는 콜백
         mapView.getMapAsync { naverMap ->
-            setupNaverMap(naverMap, latitude, longitude, locationSource) // NaverMap 설정
+            naverMapState = naverMap // NaverMap 상태 업데이트
+            setupNaverMap(naverMap, latitude, longitude) // NaverMap 설정
         }
     }
 
-    // 권한 요청 처리
-    HandlePermissions()
+    // NaverMap이 준비되었을 때 권한 요청 처리
+    naverMapState?.let { naverMap ->
+        HandlePermissions(naverMap, locationSource) // NaverMap을 전달
+    }
 }
 
 // 지도 초기화 및 설정 함수
@@ -86,7 +93,6 @@ private fun setupNaverMap(
     naverMap: NaverMap,
     latitude: Double,
     longitude: Double,
-    locationSource: FusedLocationSource
 ) {
     naverMap.uiSettings.isCompassEnabled = true // 나침반 버튼 활성화
     naverMap.uiSettings.isLocationButtonEnabled = true //현위치 버튼 활성화
@@ -99,9 +105,6 @@ private fun setupNaverMap(
         position = LatLng(latitude, longitude)
         map = naverMap
     }
-
-    // NaverMap 설정 및 위치 추적 모드 설정
-    setupNaverMapWithLocationTracking(naverMap, locationSource)
 }
 
 // NaverMap 설정 및 위치 추적 모드 설정
@@ -116,7 +119,10 @@ private fun setupNaverMapWithLocationTracking(
 
 // 권한 요청 및 결과 처리
 @Composable
-fun HandlePermissions() {
+fun HandlePermissions(
+    naverMap: NaverMap,
+    locationSource: FusedLocationSource
+) {
     val context = LocalContext.current // 현재 Context를 가져옴
 
     // 권한 요청을 처리하는 ActivityResultLauncher
@@ -124,7 +130,10 @@ fun HandlePermissions() {
         contract = ActivityResultContracts.RequestMultiplePermissions(), // 여러 권한 요청을 위한 계약
         onResult = { permissions -> // 권한 요청 결과 콜백
             val isGranted = permissions.values.all { it } // 모든 권한이 승인되었는지 확인
-            if (!isGranted) { // 권한이 거부된 경우
+            if (isGranted) { //권한이 허용된 경우
+                // NaverMap 설정 및 위치 추적 모드 설정
+                setupNaverMapWithLocationTracking(naverMap, locationSource)
+            } else { // 권한이 거부된 경우
                 Toast.makeText(
                     context,
                     R.string.permission_location, // 사용자에게 권한 필요 메시지 표시
