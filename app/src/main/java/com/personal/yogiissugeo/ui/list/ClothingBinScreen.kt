@@ -92,7 +92,7 @@ fun ClothingBinScreen(
             selectedDistrict = selectedDistrict?.displayNameRes,
             onDistrictSelected = { selectedName ->
                 val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
-                binListViewModel.onDistrictSelected(selectedSource, currentPage, perPage)
+                binListViewModel.onDistrictSelected(selectedSource, perPage)
             }
         )
 

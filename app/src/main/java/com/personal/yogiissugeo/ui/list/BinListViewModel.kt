@@ -100,13 +100,12 @@ class BinListViewModel @Inject constructor(
      * 특정 구를 선택한 후 데이터를 초기 로드합니다.
      *
      * @param apiSource 선택된 구의 API 소스.
-     * @param page 초기 페이지 번호.
      * @param perPage 한 페이지당 데이터 개수.
      */
-    fun onDistrictSelected(apiSource: ApiSource, page: Int, perPage: Int) {
+    fun onDistrictSelected(apiSource: ApiSource, perPage: Int) {
         _selectedApiSource.value = apiSource
         _currentPage.value = 1 // 페이지 초기화
-        loadClothingBins(apiSource, page, perPage)
+        loadClothingBins(apiSource, _currentPage.value, perPage)
     }
 
     /**

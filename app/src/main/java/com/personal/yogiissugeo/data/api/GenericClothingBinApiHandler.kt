@@ -3,7 +3,7 @@ package com.personal.yogiissugeo.data.api
 import com.personal.yogiissugeo.BuildConfig
 import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBinResponse
-import com.personal.yogiissugeo.data.parser.GenericClothingBinParser
+import com.personal.yogiissugeo.data.parser.ClothingBinParser
 import retrofit2.Response
 
 /**
@@ -43,7 +43,7 @@ class GenericClothingBinApiHandler(
             val body = response.body() ?: return response
 
             // API 소스에 맞는 Parser 생성
-            val parser = GenericClothingBinParser(apiSource)
+            val parser = ClothingBinParser(apiSource)
 
             // 응답 데이터를 지정된 Parser를 사용하여 변환
             val transformedData = body.data.map { parser.parse(it) }
