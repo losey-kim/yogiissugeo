@@ -2,7 +2,7 @@ package com.personal.yogiissugeo.di
 
 import com.personal.yogiissugeo.BuildConfig
 import com.personal.yogiissugeo.data.api.ClothingBinApi
-import com.personal.yogiissugeo.data.api.GenericClothingBinApiHandler
+import com.personal.yogiissugeo.data.api.ClothingBinApiHandler
 import com.personal.yogiissugeo.data.api.GeocodingApi
 import dagger.Module
 import dagger.Provides
@@ -103,8 +103,8 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideGenericClothingBinApiHandler(clothingBinApi: ClothingBinApi): GenericClothingBinApiHandler {
-        return GenericClothingBinApiHandler(clothingBinApi)
+    fun provideGenericClothingBinApiHandler(clothingBinApi: ClothingBinApi): ClothingBinApiHandler {
+        return ClothingBinApiHandler(clothingBinApi)
     }
 
     /**

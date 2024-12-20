@@ -1,9 +1,10 @@
 package com.personal.yogiissugeo.data.repository
 
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.personal.yogiissugeo.data.api.GeocodingApi
 import com.personal.yogiissugeo.data.model.GeocodingResponse
-import com.personal.yogiissugeo.BuildConfig
-import com.personal.yogiissugeo.data.api.GenericClothingBinApiHandler
+import com.personal.yogiissugeo.data.api.ClothingBinApiHandler
+import com.personal.yogiissugeo.data.constants.ApiKeys
 import com.personal.yogiissugeo.data.local.dao.ClothingBinDao
 import com.personal.yogiissugeo.data.local.dao.DistrictDataCountDao
 import com.personal.yogiissugeo.data.model.ApiSource
@@ -11,19 +12,22 @@ import com.personal.yogiissugeo.data.model.ClothingBin
 import com.personal.yogiissugeo.data.model.DistrictDataCount
 import com.personal.yogiissugeo.utils.AddressCorrector
 import com.personal.yogiissugeo.utils.safeApiCall
+import kotlinx.coroutines.tasks.await
 import retrofit2.Response
 import javax.inject.Inject
 
 /**
  * 의류 수거함 데이터를 관리하는 Repository 클래스
  *
- * @property apiHandler 의류 수거함 관련 API 호출을 처리하는 객체
+ * @property remoteConfig Firebase Remote Config에서 설정 값을 가져오는 객체
+ * @property apiHandler 의류 수거함 관련 API 호출을 처리하는 핸들러 객체
  * @property geocodingApi 주소를 좌표로 변환하는 Geocoding API 호출을 처리하는 객체
  * @property clothingBinDao 의류 수거함 데이터를 저장하고 불러오는 DAO 객체
  * @property districtDataCountDao 특정 구의 데이터 카운트를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
-    private val apiHandler: GenericClothingBinApiHandler,
+    private val remoteConfig: FirebaseRemoteConfig,
+    private val apiHandler: ClothingBinApiHandler,
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
     private val districtDataCountDao: DistrictDataCountDao,
@@ -77,11 +81,14 @@ class ClothingBinRepository @Inject constructor(
     private suspend fun fetchAndStoreBinsFromApi(
         apiSource: ApiSource,
         page: Int,
-        perPage: Int
+        perPage: Int,
     ): Result<List<ClothingBin>> {
         return safeApiCall {
+            // Remote Config에서 API 키 가져오기
+            val apiKey = fetchRemoteConfigValue(ApiKeys.CLOTHING_BIN_API_KEY)
+
             // API로부터 데이터 가져오기
-            val response = apiHandler.fetchClothingBins(apiSource, page, perPage)
+            val response = apiHandler.fetchClothingBins(apiSource, page, perPage, apiKey)
             val body = response.body()
             val formattedData = body?.formattedData.orEmpty()
 
@@ -96,12 +103,6 @@ class ClothingBinRepository @Inject constructor(
 
             // 4. 응답 생성 및 반환
             Response.success(allBins, response.raw())
-
-            // 새로운 Response 생성
-            Response.success(
-                allBins, // 변환된 데이터를 포함한 새로운 Body
-                response.raw() // 기존 HTTP 응답 메타데이터 유지
-            )
         }
     }
 
@@ -188,11 +189,15 @@ class ClothingBinRepository @Inject constructor(
      * - 내부적으로 safeApiCall을 사용하여 API 요청 중 발생할 수 있는 예외를 처리합니다.
      */
     private suspend fun getCoordinates(address: String): Result<GeocodingResponse> {
+        // Remote Config에서 API 키 가져오기
+        val naverApiKey = fetchRemoteConfigValue(ApiKeys.NAVER_MAP_API_KEY)
+        val naverClientId = fetchRemoteConfigValue(ApiKeys.NAVER_MAP_CLIENT_ID)
+
         return safeApiCall {
             geocodingApi.getCoordinates(
                 address,
-                BuildConfig.GEOCODING_API_KEY_ID,
-                BuildConfig.GEOCODING_API_KEY
+                naverClientId,
+                naverApiKey
             )
         }
     }
@@ -215,5 +220,29 @@ class ClothingBinRepository @Inject constructor(
 
         // originalData를 순회하면서 updatedMap에 있는 경우 업데이트된 데이터를 사용
         return originalData.map { bin -> updatedMap[bin.id] ?: bin }
+    }
+
+    /**
+     * Firebase Remote Config에서 특정 키 값을 가져오는 함수.
+     * 값이 존재하지 않는 경우, fetch 작업을 수행하여 최신 값을 가져옵니다.
+     *
+     * @param key Remote Config에서 가져올 설정 키.
+     * @return 설정 값이 존재하면 해당 값을 반환하고, 없으면 null을 반환.
+     */
+    private suspend fun fetchRemoteConfigValue(key: String): String? {
+        val value = remoteConfig.getString(key)
+        if (value.isNotEmpty()) {
+            // 이미 유효한 값이 있으면 반환
+            return value
+        } else {
+            // 값이 없으면 fetch 재시도
+            remoteConfig.fetchAndActivate().await()
+            val newValue = remoteConfig.getString(key)
+            return if (newValue.isNotEmpty()){
+                newValue // 새로 가져온 값 반환
+            } else {
+                null // fetch 실패 시 null 반환
+            }
+        }
     }
 }

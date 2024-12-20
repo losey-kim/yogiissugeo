@@ -24,6 +24,6 @@ interface ClothingBinApi {
         @Url endpoint: String,                 // 동적 엔드포인트 경로
         @Query("page") page: Int,              // 페이지 번호
         @Query("perPage") perPage: Int,        // 한 페이지당 반환할 데이터 개수
-        @Query("serviceKey") serviceKey: String // 인증에 사용되는 서비스 키
+        @Query("serviceKey") serviceKey: String? // 인증에 사용되는 서비스 키
     ): Response<ClothingBinResponse>
 }

@@ -23,7 +23,7 @@ interface GeocodingApi {
     @GET("map-geocode/v2/geocode")
     suspend fun getCoordinates(
         @Query("query") address: String,         // 변환할 주소
-        @Header("x-ncp-apigw-api-key-id") apiKeyId: String, // 네이버 API Gateway 인증 키 ID
-        @Header("x-ncp-apigw-api-key") apiKey: String       // 네이버 API Gateway 인증 키
+        @Header("x-ncp-apigw-api-key-id") apiKeyId: String?, // 네이버 API Gateway 인증 키 ID
+        @Header("x-ncp-apigw-api-key") apiKey: String?       // 네이버 API Gateway 인증 키
     ): Response<GeocodingResponse>
 }

@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.firebase.perf)
 }
 
 val localProperties = Properties()
@@ -26,14 +29,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Manifest Placeholders에 값을 전달
-        manifestPlaceholders["NAVER_MAPS_CLIENT_ID"] = localProperties.getProperty("NAVER_MAPS_CLIENT_ID") ?: ""
-
-        //API키 값 로컬에서 가져옴
-        buildConfigField("String", "CLOTHING_BIN_API_KEY", getLocalProperty("CLOTHING_BIN_API_KEY"))
-        buildConfigField("String", "GEOCODING_API_KEY_ID", getLocalProperty("GEOCODING_API_KEY_ID"))
-        buildConfigField("String", "GEOCODING_API_KEY", getLocalProperty("GEOCODING_API_KEY"))
     }
 
     buildTypes {
@@ -109,6 +104,13 @@ dependencies {
     implementation(libs.androidx.room.common)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
+
+    //Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.perf)
+    implementation(libs.firebase.config)
 
     // Test
     testImplementation(libs.junit)
