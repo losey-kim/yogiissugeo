@@ -10,6 +10,8 @@ import com.personal.yogiissugeo.utils.config.RemoteConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,20 +25,37 @@ class DistrictViewModel @Inject constructor(
     val districts: StateFlow<List<ApiSource>> = _districts
 
     init {
-        // RemoteConfig 초기화 상태를 관찰
-        observeRemoteConfigState()
+        // RemoteConfig 초기화 및 변경 상태를 관찰
+        observeRemoteConfigStates()
     }
 
     /**
-     * RemoteConfig 초기화 상태를 관찰하고, 초기화가 완료되면 데이터를 로드합니다.
+     * RemoteConfig 초기화 및 업데이트 상태를 하나의 Flow로 관찰하고, 조건에 따라 데이터를 로드합니다.
      */
-    private fun observeRemoteConfigState() {
+    private fun observeRemoteConfigStates() {
         viewModelScope.launch {
-            remoteConfigManager.isInitialized.collect { isInitialized ->
-                if (isInitialized) {
-                    loadSupportedDistricts()
+            // isInitialized와 isUpdated 두 Flow를 결합하여 상태를 Pair로
+            combine(
+                remoteConfigManager.isInitialized, // RemoteConfig 초기화 상태를 나타내는 Flow
+                remoteConfigManager.isUpdated // RemoteConfig 업데이트 상태를 나타내는 Flow
+            ) { isInitialized, isUpdated ->
+                // 두 상태를 Pair로 반환
+                Pair(isInitialized, isUpdated)
+                // 동일한 상태 변화에 대해 중복 처리를 방지 (중복된 상태 변경을 무시)
+            }.distinctUntilChanged()
+                // 결합된 Flow를 collect하여 상태 변화에 따라 로직을 실행
+                .collect { (isInitialized, isUpdated) ->
+                    // 초기화되었거나 업데이트되었을 때
+                    if (isInitialized || isUpdated) {
+                        // RemoteConfig에서 지원되는 District 데이터를 로드
+                        loadSupportedDistricts()
+
+                        // 업데이트가 완료된 경우, 업데이트 플래그를 초기화
+                        if (isUpdated) {
+                            remoteConfigManager.resetUpdateValue()
+                        }
+                    }
                 }
-            }
         }
     }
 
@@ -59,7 +78,7 @@ class DistrictViewModel @Inject constructor(
             val gson = Gson()
             val supportedKeys = gson.fromJson(json, SupportedDistricts::class.java)
             ApiSource.entries.filter { it.name in supportedKeys.supportedDistricts }
-        } catch (e:Exception){
+        } catch (e: Exception) {
             emptyList()
         }
     }

@@ -1,7 +1,10 @@
 package com.personal.yogiissugeo.utils.config
 
 import android.content.Context
+import com.google.firebase.remoteconfig.ConfigUpdate
+import com.google.firebase.remoteconfig.ConfigUpdateListener
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
 import com.naver.maps.map.NaverMapSdk
 import com.personal.yogiissugeo.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,13 +24,19 @@ class RemoteConfigManager @Inject constructor(
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized
 
+    // RemoteConfig 업데이트 상태를 추적하기 위한 StateFlow
+    private val _isUpdated = MutableStateFlow(false)
+    val isUpdated: StateFlow<Boolean> = _isUpdated
+
     /**
      * RemoteConfig 초기화 메서드
      * - 기본값을 설정하고, fetchAndActivate를 호출하여 RemoteConfig 값을 가져옵니다.
      * - 초기화 완료 후, Naver 지도 SDK를 설정.
      */
     fun initialize() {
+        //기본값 설정
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
+        //Config값 가져오기
         remoteConfig.fetchAndActivate()
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -36,6 +45,26 @@ class RemoteConfigManager @Inject constructor(
                 }
                 _isInitialized.value = true
             }
+
+        //Config값 Updated 시 호출
+        remoteConfig.addOnConfigUpdateListener(object : ConfigUpdateListener {
+            override fun onUpdate(configUpdate: ConfigUpdate) {
+                remoteConfig.activate().addOnCompleteListener {
+                    //업데이트 성공
+                    _isUpdated.value = true
+                }
+            }
+
+            override fun onError(error: FirebaseRemoteConfigException) {
+            }
+        })
+    }
+
+    /**
+     * 업데이트 알림 후 변수 초기화
+     */
+    fun resetUpdateValue() {
+        _isUpdated.value = false
     }
 
     /**
