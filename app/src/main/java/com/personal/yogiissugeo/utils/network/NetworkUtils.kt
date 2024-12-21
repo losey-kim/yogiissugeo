@@ -1,6 +1,5 @@
-package com.personal.yogiissugeo.utils
+package com.personal.yogiissugeo.utils.network
 
-import androidx.compose.ui.res.stringResource
 import com.personal.yogiissugeo.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

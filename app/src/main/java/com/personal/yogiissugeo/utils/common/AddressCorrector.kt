@@ -1,4 +1,4 @@
-package com.personal.yogiissugeo.utils
+package com.personal.yogiissugeo.utils.common
 
 /**
  * 주소 정제를 위한 유틸리티 클래스.

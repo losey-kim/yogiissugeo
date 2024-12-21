@@ -1,4 +1,4 @@
-package com.personal.yogiissugeo.utils
+package com.personal.yogiissugeo.utils.network
 
 import androidx.annotation.StringRes
 

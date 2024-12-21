@@ -6,7 +6,7 @@ import com.personal.yogiissugeo.R
 import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
 import com.personal.yogiissugeo.data.repository.ClothingBinRepository
-import com.personal.yogiissugeo.utils.ResourceException
+import com.personal.yogiissugeo.utils.network.ResourceException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -54,14 +54,17 @@ import com.personal.yogiissugeo.data.model.ClothingBin
 @Composable
 fun ClothingBinScreen(
     navController: NavHostController,
-    binListViewModel: BinListViewModel = hiltViewModel()
+    binListViewModel: BinListViewModel = hiltViewModel(),
+    districtViewModel: DistrictViewModel = hiltViewModel()
 ) {
+
     // ViewModel의 상태 값들을 수집
     val clothingBins by binListViewModel.clothingBins.collectAsState() // 의류 수거함 리스트
     val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
     val isLoading by binListViewModel.isLoading.collectAsState() // 로딩 상태
     val errorMessage by binListViewModel.errorMessage.collectAsState() // 에러 메시지
-    val districtList = ApiSource.entries.map { it.displayNameRes } // 구 목록 가져오기
+    val supportDistrict = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
+    val districtList = supportDistrict.value.map { it.displayNameRes }
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
 
     val perPage = 3 // 페이지당 항목 수

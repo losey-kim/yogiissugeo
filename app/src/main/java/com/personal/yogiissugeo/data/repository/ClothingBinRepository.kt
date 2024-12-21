@@ -1,18 +1,17 @@
 package com.personal.yogiissugeo.data.repository
 
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.personal.yogiissugeo.data.api.GeocodingApi
 import com.personal.yogiissugeo.data.model.GeocodingResponse
 import com.personal.yogiissugeo.data.api.ClothingBinApiHandler
-import com.personal.yogiissugeo.data.constants.ApiKeys
 import com.personal.yogiissugeo.data.local.dao.ClothingBinDao
 import com.personal.yogiissugeo.data.local.dao.DistrictDataCountDao
 import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
 import com.personal.yogiissugeo.data.model.DistrictDataCount
-import com.personal.yogiissugeo.utils.AddressCorrector
-import com.personal.yogiissugeo.utils.safeApiCall
-import kotlinx.coroutines.tasks.await
+import com.personal.yogiissugeo.utils.common.AddressCorrector
+import com.personal.yogiissugeo.utils.config.RemoteConfigKeys
+import com.personal.yogiissugeo.utils.config.RemoteConfigManager
+import com.personal.yogiissugeo.utils.network.safeApiCall
 import retrofit2.Response
 import javax.inject.Inject
 
@@ -26,7 +25,7 @@ import javax.inject.Inject
  * @property districtDataCountDao 특정 구의 데이터 카운트를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
-    private val remoteConfig: FirebaseRemoteConfig,
+    private val remoteConfigManager: RemoteConfigManager,
     private val apiHandler: ClothingBinApiHandler,
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
@@ -85,7 +84,7 @@ class ClothingBinRepository @Inject constructor(
     ): Result<List<ClothingBin>> {
         return safeApiCall {
             // Remote Config에서 API 키 가져오기
-            val apiKey = fetchRemoteConfigValue(ApiKeys.CLOTHING_BIN_API_KEY)
+            val apiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.CLOTHING_BIN_API_KEY)
 
             // API로부터 데이터 가져오기
             val response = apiHandler.fetchClothingBins(apiSource, page, perPage, apiKey)
@@ -190,8 +189,8 @@ class ClothingBinRepository @Inject constructor(
      */
     private suspend fun getCoordinates(address: String): Result<GeocodingResponse> {
         // Remote Config에서 API 키 가져오기
-        val naverApiKey = fetchRemoteConfigValue(ApiKeys.NAVER_MAP_API_KEY)
-        val naverClientId = fetchRemoteConfigValue(ApiKeys.NAVER_MAP_CLIENT_ID)
+        val naverApiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.NAVER_MAP_API_KEY)
+        val naverClientId = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.NAVER_MAP_CLIENT_ID)
 
         return safeApiCall {
             geocodingApi.getCoordinates(
@@ -220,29 +219,5 @@ class ClothingBinRepository @Inject constructor(
 
         // originalData를 순회하면서 updatedMap에 있는 경우 업데이트된 데이터를 사용
         return originalData.map { bin -> updatedMap[bin.id] ?: bin }
-    }
-
-    /**
-     * Firebase Remote Config에서 특정 키 값을 가져오는 함수.
-     * 값이 존재하지 않는 경우, fetch 작업을 수행하여 최신 값을 가져옵니다.
-     *
-     * @param key Remote Config에서 가져올 설정 키.
-     * @return 설정 값이 존재하면 해당 값을 반환하고, 없으면 null을 반환.
-     */
-    private suspend fun fetchRemoteConfigValue(key: String): String? {
-        val value = remoteConfig.getString(key)
-        if (value.isNotEmpty()) {
-            // 이미 유효한 값이 있으면 반환
-            return value
-        } else {
-            // 값이 없으면 fetch 재시도
-            remoteConfig.fetchAndActivate().await()
-            val newValue = remoteConfig.getString(key)
-            return if (newValue.isNotEmpty()){
-                newValue // 새로 가져온 값 반환
-            } else {
-                null // fetch 실패 시 null 반환
-            }
-        }
     }
 }

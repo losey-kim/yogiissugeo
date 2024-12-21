@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- START xml_defaults -->
+<defaultsMap>
+    <entry>
+        <key>supported_districts</key>
+        <value>[
+            "GANGNAM",
+            "GANGDONG",
+            "GANGBUK",
+            "GANGSEO",
+            "GWANAK",
+            "GWANGJIN",
+            "GURO",
+            "GEUMCHEON",
+            "DONGDAEMUN",
+            "DONGJAK",
+            "SEODAEMUN",
+            "SEOCHO",
+            "SEONGDONG",
+            "SEONGBUK",
+            "SONGPA",
+            "YANGCHEON",
+            "YEONGDEUNGPO",
+            "JONGNO",
+            "JUNGNANG"
+            ]</value>
+    </entry>
+</defaultsMap>
+    <!-- END xml_defaults -->
