@@ -3,12 +3,10 @@ package com.personal.yogiissugeo.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -25,29 +23,25 @@ import com.personal.yogiissugeo.R
 import com.personal.yogiissugeo.ui.nav.AppNavHost
 
 @Composable
-fun YigApp(modifier: Modifier = Modifier){
+fun YigApp(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0,0,0,0)
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            TopAppBar() //상단 앱바
+        }
     ) { padding ->
         Column(
             Modifier
+                .fillMaxSize()
                 .padding(padding)
                 .consumeWindowInsets(padding)
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Horizontal,
-                    ),
-                )
         ) {
-            //툴바
-            TopAppBar()
-
             Box(
-                modifier = Modifier.consumeWindowInsets(
-                    WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
-                )
+                modifier = Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
             ) {
                 val navController = rememberNavController()
                 AppNavHost(navController = navController)

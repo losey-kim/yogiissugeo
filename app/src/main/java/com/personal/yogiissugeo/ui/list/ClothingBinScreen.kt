@@ -1,6 +1,7 @@
 package com.personal.yogiissugeo.ui.list
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -70,44 +73,44 @@ fun ClothingBinScreen(
     val perPage = 3 // 페이지당 항목 수
 
     // 전체 UI 구조
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(dimensionResource(R.dimen.padding_small))
-    ) {
-        // 구 선택 드롭다운 메뉴
-        DistrictDropdownMenu(
-            districtList = districtList,
-            selectedDistrict = selectedDistrict?.displayNameRes,
-            onDistrictSelected = { selectedName ->
-                val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
-                binListViewModel.onDistrictSelected(selectedSource, perPage)
-            }
-        )
+    Box(modifier = Modifier){
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(dimensionResource(R.dimen.padding_small))
+        ) {
+            // 구 선택 드롭다운 메뉴
+            DistrictDropdownMenu(
+                districtList = districtList,
+                selectedDistrict = selectedDistrict?.displayNameRes,
+                onDistrictSelected = { selectedName ->
+                    val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                    binListViewModel.onDistrictSelected(selectedSource, perPage)
+                }
+            )
 
-        // 페이지 컨트롤 버튼
-        PageControl(
-            currentPage = currentPage,
-            onPreviousPage = { binListViewModel.goToPreviousPage(perPage) },
-            onNextPage = { binListViewModel.goToNextPage(perPage) }
-        )
+            // 페이지 컨트롤 버튼
+            PageControl(
+                currentPage = currentPage,
+                onPreviousPage = { binListViewModel.goToPreviousPage(perPage) },
+                onNextPage = { binListViewModel.goToNextPage(perPage) }
+            )
 
-        Spacer(modifier = Modifier.height(8.dp)) // 간격 추가
+            Spacer(modifier = Modifier.height(8.dp)) // 간격 추가
+
+            // 성공적으로 데이터를 가져왔을 때 LazyColumn으로 목록 렌더링
+            ClothingBinList(clothingBins = clothingBins, navController = navController)
+        }
 
         // 로딩 상태 처리
         if (isLoading) {
             LoadingIndicator()
-            return // 로딩 중일 때는 로딩 인디케이터만 표시
         }
 
         // 에러 상태 처리
         errorMessage?.let { resourceId ->
             ErrorMessage(resourceId = resourceId)
-            return // 에러 메시지가 있으면 에러 UI만 표시
         }
-
-        // 성공적으로 데이터를 가져왔을 때 LazyColumn으로 목록 렌더링
-        ClothingBinList(clothingBins = clothingBins, navController = navController)
     }
 }
 
@@ -171,8 +174,18 @@ fun PageControl(
  */
 @Composable
 fun LoadingIndicator() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.3f))
+            .clickable(enabled = false) {},
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.width(64.dp),
+            color = MaterialTheme.colorScheme.secondary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
     }
 }
 
