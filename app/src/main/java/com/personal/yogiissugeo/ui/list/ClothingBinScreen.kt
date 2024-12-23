@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -47,6 +49,7 @@ import androidx.navigation.NavHostController
 import com.personal.yogiissugeo.R
 import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
+import com.personal.yogiissugeo.ui.nav.NavRoutes
 
 /**
  * 의류 수거함 목록을 표시하는 화면
@@ -61,6 +64,7 @@ fun ClothingBinScreen(
     districtViewModel: DistrictViewModel = hiltViewModel()
 ) {
 
+    val context = LocalContext.current
     // ViewModel의 상태 값들을 수집
     val clothingBins by binListViewModel.clothingBins.collectAsState() // 의류 수거함 리스트
     val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
@@ -70,7 +74,7 @@ fun ClothingBinScreen(
     val districtList = supportDistrict.value.map { it.displayNameRes }
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
 
-    val perPage = 3 // 페이지당 항목 수
+    val perPage = 100 // 페이지당 항목 수
 
     // 전체 UI 구조
     Box(modifier = Modifier){
@@ -85,7 +89,18 @@ fun ClothingBinScreen(
                 selectedDistrict = selectedDistrict?.displayNameRes,
                 onDistrictSelected = { selectedName ->
                     val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
-                    binListViewModel.onDistrictSelected(selectedSource, perPage)
+                    when(selectedSource){
+                        ApiSource.EUNPYEONG, ApiSource.MAPO -> {
+                            // CSV 파일을 assets에서 읽어오는 코드
+                            selectedSource.csvName?.let { csvName ->
+                                val inputStream = context.assets.open(csvName)
+                                binListViewModel.loadCsv(inputStream, selectedSource)
+                            }
+                        }
+                        else -> {
+                            binListViewModel.onDistrictSelected(selectedSource, perPage)
+                        }
+                    }
                 }
             )
 
@@ -219,11 +234,8 @@ fun ClothingBinList(clothingBins: List<ClothingBin>, navController: NavHostContr
     ) {
         items(clothingBins) { bin ->
             BinItem(bin) {
-                val latitude = bin.latitude
-                val longitude = bin.longitude
-                if (latitude != null && longitude != null) {
-                    navController.navigate("mapScreen/$latitude/$longitude")
-                }
+                //클릭 시 이동
+                navController.navigate(NavRoutes.Map)
             }
         }
     }

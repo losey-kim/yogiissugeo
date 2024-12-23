@@ -30,7 +30,7 @@ class ClothingBinApiHandler(
     ): Response<ClothingBinResponse> {
         // API 호출: 특정 엔드포인트와 페이지 정보를 사용하여 데이터 요청
         val response = clothingBinApi.getClothingBinsByEndpoint(
-            endpoint = apiSource.endpoint,
+            endpoint = apiSource.endpoint ?: "",
             page = page,
             perPage = perPage,
             serviceKey = serviceKey

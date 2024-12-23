@@ -1,5 +1,6 @@
 package com.personal.yogiissugeo.data.repository
 
+import com.opencsv.CSVReader
 import com.personal.yogiissugeo.data.api.GeocodingApi
 import com.personal.yogiissugeo.data.model.GeocodingResponse
 import com.personal.yogiissugeo.data.api.ClothingBinApiHandler
@@ -13,6 +14,8 @@ import com.personal.yogiissugeo.utils.config.RemoteConfigKeys
 import com.personal.yogiissugeo.utils.config.RemoteConfigManager
 import com.personal.yogiissugeo.utils.network.safeApiCall
 import retrofit2.Response
+import java.io.InputStream
+import java.io.InputStreamReader
 import javax.inject.Inject
 
 /**
@@ -219,5 +222,46 @@ class ClothingBinRepository @Inject constructor(
 
         // originalData를 순회하면서 updatedMap에 있는 경우 업데이트된 데이터를 사용
         return originalData.map { bin -> updatedMap[bin.id] ?: bin }
+    }
+
+    // CSV 데이터 파싱 함수 추가
+    fun parseCsv(inputStream: InputStream, apiSource: ApiSource): List<ClothingBin> {
+        val reader = CSVReader(InputStreamReader(inputStream))
+        val bins = mutableListOf<ClothingBin>()
+
+        reader.readNext() // 헤더 건너뛰기
+        reader.forEachIndexed { index, row ->
+            when (apiSource) {
+                ApiSource.MAPO -> parseMapoRow(row)?.let { bins.add(it) } //마포구
+                ApiSource.EUNPYEONG -> parseEunpyeongRow(index, row)?.let { bins.add(it) } //은평구
+                else -> { /* 다른 구는 처리하지 않음 */ }
+            }
+        }
+
+        return bins
+    }
+
+    //마포구 데이터 파싱
+    private fun parseMapoRow(row: Array<String>): ClothingBin? {
+        return if (row[2].isNotEmpty() && row[3].isNotEmpty()) {
+            ClothingBin(
+                id = row[0],
+                address = row[1],
+                latitude = row[2],
+                longitude = row[3]
+            )
+        } else null
+    }
+
+    //은평구 데이터 파싱
+    private fun parseEunpyeongRow(index: Int, row: Array<String>): ClothingBin? {
+        return if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
+            ClothingBin(
+                id = index.toString(),
+                address = row[2],
+                latitude = row[4],
+                longitude = row[3]
+            )
+        } else null
     }
 }

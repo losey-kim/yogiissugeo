@@ -112,6 +112,8 @@ dependencies {
     implementation(libs.firebase.perf)
     implementation(libs.firebase.config)
 
+    implementation ("com.opencsv:opencsv:5.7.1")
+
     // Test
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

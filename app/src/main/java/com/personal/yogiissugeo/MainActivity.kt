@@ -4,9 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.navigation.compose.rememberNavController
 import com.personal.yogiissugeo.ui.YigApp
-import com.personal.yogiissugeo.ui.nav.AppNavHost
 import com.personal.yogiissugeo.ui.theme.YogiIssugeoTheme
 import dagger.hilt.android.AndroidEntryPoint
 

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.InputStream
 import javax.inject.Inject
 
 /**
@@ -130,5 +131,12 @@ class BinListViewModel @Inject constructor(
         val prevPage = (_currentPage.value - 1).coerceAtLeast(1) // 현재 페이지 번호 감소
         _currentPage.value = prevPage
         loadClothingBins(apiSource, _currentPage.value, perPage) // 이전 페이지 데이터 로드
+    }
+
+    // CSV 파일 로드 함수
+    fun loadCsv(inputStream: InputStream, apiSource: ApiSource) {
+        viewModelScope.launch {
+            _clothingBins.value = clothingBinRepository.parseCsv(inputStream, apiSource)
+        }
     }
 }
