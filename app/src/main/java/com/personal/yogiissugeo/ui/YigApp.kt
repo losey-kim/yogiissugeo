@@ -21,16 +21,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.rememberNavController
 import com.personal.yogiissugeo.R
 import com.personal.yogiissugeo.ui.nav.AppNavHost
+import com.personal.yogiissugeo.ui.nav.BottomNavigationBar
 
 @Composable
 fun YigApp(modifier: Modifier = Modifier) {
+    val navController = rememberNavController()
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar() //상단 앱바
-        }
+        },
+        bottomBar = { BottomNavigationBar(navController) }
     ) { padding ->
         Column(
             Modifier
@@ -43,7 +46,6 @@ fun YigApp(modifier: Modifier = Modifier) {
                     .fillMaxSize()
                     .safeDrawingPadding()
             ) {
-                val navController = rememberNavController()
                 AppNavHost(navController = navController)
             }
         }

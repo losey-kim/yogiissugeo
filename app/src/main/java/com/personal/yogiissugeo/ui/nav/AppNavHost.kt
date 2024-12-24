@@ -1,12 +1,10 @@
 package com.personal.yogiissugeo.ui.nav
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.personal.yogiissugeo.ui.list.BinListViewModel
 import com.personal.yogiissugeo.ui.list.ClothingBinScreen
 import com.personal.yogiissugeo.ui.map.NaverMapScreen
 
@@ -22,24 +20,15 @@ object NavRoutes {
  * @param navController 네비게이션을 위한 NavHostController
  */
 @Composable
-fun AppNavHost(navController: NavHostController) {
-    // NavHost: 앱의 네비게이션 그래프를 정의합니다.
+fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
-        navController = navController, // 네비게이션 컨트롤러
-        startDestination = NavRoutes.BinList // 앱 시작 시 보여줄 화면 (binListScreen)
+        navController = navController,
+        startDestination = NavigationItem.Map.route, // 앱 시작 시 표시할 기본 경로 설정
+        modifier = modifier
     ) {
-        // "binListScreen" 경로로 접근 시 의류 수거함 목록 화면을 표시
-        composable(NavRoutes.BinList) {
-            val viewModel: BinListViewModel = hiltViewModel()
-            ClothingBinScreen(navController, viewModel) // ClothingBinScreen 컴포저블로 이동
-        }
-
-        composable(NavRoutes.Map) { backStackEntry ->
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(NavRoutes.BinList)
-            }
-            val viewModel: BinListViewModel = hiltViewModel(parentEntry)
-            NaverMapScreen(viewModel)
-        }
+        //지도화면
+        composable(NavigationItem.Map.route) { NaverMapScreen() }
+        //저장된 항목 화면
+        composable(NavigationItem.Saved.route) { ClothingBinScreen(navController) }
     }
 }

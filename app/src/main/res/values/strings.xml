@@ -46,6 +46,11 @@
 
     <!-- NaverMapScreen -->
 
+    <!-- Navigation -->
+    <string name="nav_map">지도</string>
+    <string name="nav_saved">저장</string>
+    <!-- Navigation -->
+
     <!-- Permission -->
     <string name="permission_location">위치 권한이 필요합니다.</string>
     <!-- Permission -->

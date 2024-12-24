@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
     alias(libs.plugins.firebase.perf)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val localProperties = Properties()
@@ -68,7 +69,6 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.activity.compose)
-    // Compose Navigation 추가
     implementation(libs.androidx.navigation.compose)
 
     // Lifecycle
@@ -112,7 +112,10 @@ dependencies {
     implementation(libs.firebase.perf)
     implementation(libs.firebase.config)
 
-    implementation ("com.opencsv:opencsv:5.7.1")
+    //openCSV
+    implementation (libs.opencsv)
+
+    implementation(libs.kotlinx.serialization.json)
 
     // Test
     testImplementation(libs.junit)
