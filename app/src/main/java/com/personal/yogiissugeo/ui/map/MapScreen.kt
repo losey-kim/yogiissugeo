@@ -99,7 +99,7 @@ fun NaverMapScreen(
             mapView.getMapAsync { naverMap ->
                 if (naverMapState == null) {
                     mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
-                    setupNaverMap(naverMap, selectedDistrict) // NaverMap 설정
+                    setupNaverMap(naverMap) // NaverMap 설정
                 }
             }
         }
@@ -112,22 +112,21 @@ fun NaverMapScreen(
                 //구 선택 시 클러스터 초기화
                 mapViewModel.setKeyTagMap(null)
                 val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
-                when (selectedSource) {
-                    ApiSource.EUNPYEONG, ApiSource.MAPO -> { //은평, 마포구
-                        // CSV 파일을 assets에서 읽어오는 코드
-                        selectedSource.csvName?.let { csvName ->
-                            context.loadCsvFromAssets(csvName, { inputStream ->
-                                // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
-                                binListViewModel.loadCsv(inputStream, selectedSource)
-                            }) {
-                                //파일 로드 실패 시
-                                Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
-                            }
+                if (selectedSource in ApiSource.CSV_SOURCES) { //노원구, 은평구, 마포구, 중구
+                    // CSV 파일을 assets에서 읽어오는 코드
+                    selectedSource.csvName?.let { csvName ->
+                        context.loadCsvFromAssets(csvName, { inputStream ->
+                            // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
+                            binListViewModel.loadCsv(inputStream, selectedSource)
+                        }) {
+                            //파일 로드 실패 시
+                            Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT)
+                                .show()
                         }
                     }
-                    else -> { //이외의 구는 API요청
-                        binListViewModel.onDistrictSelected(selectedSource, perPage)
-                    }
+                }
+                else { //이외의 구는 API요청
+                    binListViewModel.onDistrictSelected(selectedSource, perPage)
                 }
             },
             modifier = Modifier.align(Alignment.TopCenter)
@@ -247,7 +246,7 @@ fun HandlePermissions(
  * 구 선택을 위한 드롭다운 메뉴 컴포저블.
  *
  * @param districtList 구 이름의 리소스 ID 리스트.
- * @param selectedDistrict 현재 선택된 구의 리소스 ID. 선택되지 않은 경우 null.
+ * @param selectedDistrict 현재 선택된 구의 리소스 ID. 선택되지 않은 경우 빈 값.
  * @param onDistrictSelected 사용자가 구를 선택했을 때 호출되는 콜백. 선택된 구의 리소스 ID를 반환.
  */
 @OptIn(ExperimentalMaterial3Api::class)

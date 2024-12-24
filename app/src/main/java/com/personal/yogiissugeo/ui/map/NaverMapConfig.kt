@@ -14,18 +14,16 @@ import com.naver.maps.map.overlay.Align
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.util.FusedLocationSource
 import com.naver.maps.map.util.MarkerIcons
-import com.personal.yogiissugeo.data.model.ApiSource
 import com.personal.yogiissugeo.data.model.ClothingBin
 
 private const val DEFAULT_ZOOM_LEVEL = 12.0
 
 // 지도 초기화 및 설정 함수
 fun setupNaverMap(
-    naverMap: NaverMap,
-    selectedApiSource: ApiSource?
+    naverMap: NaverMap
 ) {
     naverMap.cameraPosition = CameraPosition(
-        selectedApiSource?.defaultLatLng ?: NaverMap.DEFAULT_CAMERA_POSITION.target,
+        NaverMap.DEFAULT_CAMERA_POSITION.target,
         DEFAULT_ZOOM_LEVEL,
         0.0,
         0.0

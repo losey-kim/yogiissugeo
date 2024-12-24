@@ -140,11 +140,15 @@ class BinListViewModel @Inject constructor(
      * CSV 파일을 로드하여 저장 함수
      *
      * @param inputStream 한 페이지에 표시할 항목 수
-     * @param apiSource 선택된 구 정보
+     * @param district 선택된 구 정보
      */
-    fun loadCsv(inputStream: InputStream, apiSource: ApiSource) {
+    fun loadCsv(inputStream: InputStream, district: ApiSource) {
         viewModelScope.launch {
-            _clothingBins.value = clothingBinRepository.parseCsv(inputStream, apiSource)
+            _clothingBins.value = clothingBinRepository.parseCsv(inputStream, district)
+            //선택한 구가 바뀌었을 때 저장
+            if (_selectedApiSource.value != district) {
+                _selectedApiSource.value = district
+            }
         }
     }
 }

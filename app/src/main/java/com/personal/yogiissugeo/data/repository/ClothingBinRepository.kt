@@ -229,13 +229,12 @@ class ClothingBinRepository @Inject constructor(
         val reader = CSVReader(InputStreamReader(inputStream))
         val bins = mutableListOf<ClothingBin>()
 
+        // ApiSource의 Companion Object에서 파서 가져오기
+        val parser = ApiSource.csvParsers[apiSource] ?: return emptyList()
+
         reader.readNext() // 헤더 건너뛰기
         reader.forEachIndexed { index, row ->
-            when (apiSource) {
-                ApiSource.MAPO -> parseMapoRow(row)?.let { bins.add(it) } //마포구
-                ApiSource.EUNPYEONG -> parseEunpyeongRow(index, row)?.let { bins.add(it) } //은평구
-                else -> { /* 다른 구는 처리하지 않음 */ }
-            }
+            parser(index, row)?.let { bins.add(it) }
         }
 
         return bins
@@ -261,6 +260,30 @@ class ClothingBinRepository @Inject constructor(
                 address = row[2],
                 latitude = row[4],
                 longitude = row[3]
+            )
+        } else null
+    }
+
+    //중구 데이터 파싱
+    private fun parseJungguRow(row: Array<String>): ClothingBin? {
+        return if (row[6].isNotEmpty() && row[7].isNotEmpty()) {
+            ClothingBin(
+                id = row[0],
+                address = row[4],
+                latitude = row[6],
+                longitude = row[7]
+            )
+        } else null
+    }
+
+    //노원구 데이터 파싱
+    private fun parseNoWonRow(row: Array<String>): ClothingBin? {
+        return if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
+            ClothingBin(
+                id = row[0],
+                address = row[2],
+                latitude = row[3],
+                longitude = row[4]
             )
         } else null
     }

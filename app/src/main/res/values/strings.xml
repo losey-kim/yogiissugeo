@@ -20,6 +20,7 @@
     <string name="gwangjin">광진구</string>
     <string name="guro">구로구</string>
     <string name="geumcheon">금천구</string>
+    <string name="nowon">노원구</string>
     <string name="dongdaemun">동대문구</string>
     <string name="dongjak">동작구</string>
     <string name="mapo">마포구</string>
@@ -32,6 +33,7 @@
     <string name="yeongdeungpo">영등포구</string>
     <string name="eunpyeong">은평구</string>
     <string name="jongno">종로구</string>
+    <string name="junggu">중구</string>
     <string name="jungnang">중랑구</string>
     <!-- 구 이름 -->
 
