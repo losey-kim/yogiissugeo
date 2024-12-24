@@ -1,78 +1,91 @@
 package com.personal.yogiissugeo.ui.map
 
-import android.graphics.Color
+import android.content.Context
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEachIndexed
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
-import com.naver.maps.geometry.LatLng
-import com.naver.maps.map.CameraPosition
-import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
-import com.naver.maps.map.clustering.Clusterer
-import com.naver.maps.map.clustering.Clusterer.ComplexBuilder
-import com.naver.maps.map.clustering.ClusteringKey
-import com.naver.maps.map.clustering.DefaultClusterMarkerUpdater
-import com.naver.maps.map.clustering.DefaultClusterOnClickListener
-import com.naver.maps.map.clustering.DefaultDistanceStrategy
-import com.naver.maps.map.clustering.DefaultMarkerManager
-import com.naver.maps.map.clustering.DistanceStrategy
-import com.naver.maps.map.clustering.Node
-import com.naver.maps.map.overlay.Align
-import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.util.FusedLocationSource
-import com.naver.maps.map.util.MarkerIcons
 import com.personal.yogiissugeo.R
 import com.personal.yogiissugeo.data.model.ApiSource
-import com.personal.yogiissugeo.data.model.ClothingBin
 import com.personal.yogiissugeo.ui.list.BinListViewModel
+import com.personal.yogiissugeo.ui.list.DistrictViewModel
+import com.personal.yogiissugeo.utils.common.loadCsvFromAssets
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.InputStream
 
 @Composable
 fun NaverMapScreen(
     binListViewModel: BinListViewModel = hiltViewModel(),
-    mapViewModel : MapViewModel = hiltViewModel()
+    districtViewModel: DistrictViewModel = hiltViewModel(),
+    mapViewModel: MapViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
 
-    //지도 관련
-    val mapView = mapViewModel.mapView
-    val naverMapState by mapViewModel.naverMapState.collectAsState() // ViewModel의 상태 관찰
-
     //의류수거함 값
     val clothingBins = binListViewModel.clothingBins.collectAsState().value
-    val selectedApiSource = binListViewModel.selectedApiSource.collectAsState().value
+    val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
+    val isLoading by binListViewModel.isLoading.collectAsState() // 로딩 상태
+    val errorMessage by binListViewModel.errorMessage.collectAsState() // 에러 메시지
+    val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
+    val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
 
-    //위치권한 관련
-    val activity = context as ComponentActivity // 현재 Activity 가져오기
+    //지도 관련
+    val mapView = mapViewModel.mapView
+    val naverMapState by mapViewModel.naverMapState.collectAsState()
+    val clusterer = mapViewModel.clusterer.collectAsState()
+    val keyTagMap = mapViewModel.keyTagMap.collectAsState()
+    val perPage = 100 // 페이지당 항목 수
+
+
+    // 위치 권한
     val locationSource = remember {
-        FusedLocationSource(activity, LOCATION_PERMISSION_REQUEST_CODE)
+        FusedLocationSource(context as ComponentActivity, LOCATION_PERMISSION_REQUEST_CODE)
     }
 
-    // MapView의 Lifecycle 이벤트를 관리
+    // MapView의 Lifecycle 관리
     ManageMapViewLifecycle(lifecycle, mapView, naverMapState)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -84,26 +97,97 @@ fun NaverMapScreen(
         ) { mapView ->
             // MapView가 준비되었을 때 호출되는 콜백
             mapView.getMapAsync { naverMap ->
-                if (naverMapState == null){
+                if (naverMapState == null) {
                     mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
-                    setupNaverMap(naverMap, selectedApiSource) // NaverMap 설정
-                }
-                if (clothingBins.isNotEmpty()){
-                    setupMarker(naverMap, clothingBins)
+                    setupNaverMap(naverMap, selectedDistrict) // NaverMap 설정
                 }
             }
         }
 
-        Button(
-            onClick = {
-                // "더보기" 버튼 클릭 시 현재 좌표 전달
-                binListViewModel.goToNextPage(100)
+        // 구 선택 드롭다운 메뉴
+        DistrictDropdownMenu(
+            districtList = supportDistricts.value.map { it.displayNameRes },
+            selectedDistrict = selectedDistrict?.displayNameRes,
+            onDistrictSelected = { selectedName ->
+                //구 선택 시 클러스터 초기화
+                mapViewModel.setKeyTagMap(null)
+                val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                when (selectedSource) {
+                    ApiSource.EUNPYEONG, ApiSource.MAPO -> { //은평, 마포구
+                        // CSV 파일을 assets에서 읽어오는 코드
+                        selectedSource.csvName?.let { csvName ->
+                            context.loadCsvFromAssets(csvName, { inputStream ->
+                                // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
+                                binListViewModel.loadCsv(inputStream, selectedSource)
+                            }) {
+                                //파일 로드 실패 시
+                                Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    else -> { //이외의 구는 API요청
+                        binListViewModel.onDistrictSelected(selectedSource, perPage)
+                    }
+                }
             },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(16.dp)
-        ) {
-            Text("더보기")
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+
+        //더보기 버튼(로딩 및 에러아닐 때 출력)
+        if (!isLoading && errorMessage == null) {
+            Button(
+                onClick = {
+                    // "더보기" 버튼 클릭 시 현재 좌표 전달
+                    binListViewModel.goToNextPage(perPage)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 44.dp, start = 16.dp, end = 16.dp)
+            ) {
+                Text(stringResource(R.string.map_more))
+            }
+        }
+
+        // 로딩 상태 처리
+        if (isLoading) {
+            LoadingIndicator()
+        }
+
+        // 에러 상태 처리
+        errorMessage?.let { resourceId ->
+            ErrorMessage(resourceId = resourceId)
+        }
+    }
+
+    // selectedDistrict가 변경될 때 호출하여 카메라 포지션 이동
+    LaunchedEffect(selectedDistrict) {
+        if (clothingBins.isNotEmpty()) {
+            clothingBins.first().longitude?.let { longitude ->
+                clothingBins.first().latitude?.let { latitude ->
+                    naverMapState?.let { naverMap ->
+                        animateCameraToPosition(latitude.toDouble(), longitude.toDouble(), naverMap)
+                    }
+                }
+            }
+        }
+    }
+
+    // 수거함 데이터 변경에 따른 클러스터 업데이트
+    LaunchedEffect(clothingBins) {
+        //클러스터
+        naverMapState?.let { naverMap ->
+            if (clothingBins.isNotEmpty()) {
+                //클러스터 설정
+                addCluster(
+                    clusterer.value,
+                    keyTagMap.value,
+                    naverMap,
+                    clothingBins
+                ) { newclusterer, keyTagMap ->
+                    mapViewModel.setClusterer(newclusterer)
+                    mapViewModel.setKeyTagMap(keyTagMap)
+                }
+            }
         }
     }
 
@@ -111,127 +195,6 @@ fun NaverMapScreen(
     naverMapState?.let { naverMap ->
         HandlePermissions(naverMap, locationSource) // NaverMap을 전달
     }
-}
-
-// 지도 초기화 및 설정 함수
-private fun setupNaverMap(
-    naverMap: NaverMap,
-    selectedApiSource: ApiSource?
-) {
-    naverMap.cameraPosition = CameraPosition(
-        selectedApiSource?.defaultLatLng ?: NaverMap.DEFAULT_CAMERA_POSITION.target,
-        12.0,
-        0.0,
-        0.0
-    )
-    naverMap.uiSettings.isCompassEnabled = true // 나침반 버튼 활성화
-    naverMap.uiSettings.isLocationButtonEnabled = true //현위치 버튼 활성화
-}
-
-//마커 생성함수
-private fun setupMarker(
-    naverMap: NaverMap,
-    clothingBins: List<ClothingBin>,
-){
-    // 의류 수거함 데이터를 기반으로 키와 태그 맵 생성
-    val keyTagMap = buildMap {
-        clothingBins.fastForEachIndexed { i, bin ->
-            put(ItemKey(i, LatLng((bin.latitude?.toDouble() ?: 0.0), (bin.longitude?.toDouble() ?: 0.0))), ItemData(bin.address ?: "", bin.district ?: ""))
-        }
-    }
-
-    var clusterer: Clusterer<ItemKey>? = null
-
-    // 클러스터링 설정 및 생성
-    clusterer = ComplexBuilder<ItemKey>()
-        .minClusteringZoom(9) // 최소 클러스터링 줌 레벨
-        .maxClusteringZoom(16) // 최대 클러스터링 줌 레벨
-        .maxScreenDistance(200.0) // 클러스터링 허용 최대 화면 거리
-        .thresholdStrategy { zoom -> // 줌 레벨에 따른 클러스터링 기준 거리 설정
-            if (zoom <= 11) {
-                0.0
-            } else {
-                70.0
-            }
-        }
-        .distanceStrategy(object : DistanceStrategy {
-            private val defaultDistanceStrategy = DefaultDistanceStrategy()
-
-            override fun getDistance(zoom: Int, node1: Node, node2: Node): Double {
-                return if (zoom <= 9) {
-                    // 줌 레벨 9 이하에서는 클러스터링 비활성화
-                    -1.0
-                } else if ((node1.tag as ItemData).gu == (node2.tag as ItemData).gu) {
-                    // 같은 행정 구역 내에서만 클러스터링 적용
-                    if (zoom <= 11) {
-                        -1.0
-                    } else {
-                        defaultDistanceStrategy.getDistance(zoom, node1, node2)
-                    }
-                } else {
-                    // 다른 행정 구역 간의 클러스터링 거리 설정
-                    10000.0
-                }
-            }
-        })
-        .tagMergeStrategy { cluster -> // 클러스터 태그 병합 전략 설정
-            if (cluster.maxZoom <= 9) {
-                null
-            } else {
-                ItemData("", (cluster.children.first().tag as ItemData).gu)
-            }
-        }
-        .markerManager(object : DefaultMarkerManager() { // 마커 생성 및 스타일 관리
-            override fun createMarker() = super.createMarker().apply {
-                subCaptionTextSize = 10f
-                subCaptionColor = Color.WHITE
-                subCaptionHaloColor = Color.TRANSPARENT
-            }
-        })
-        .clusterMarkerUpdater { info, marker -> // 클러스터 마커 업데이트 로직
-            val size = info.size
-            marker.icon = when {
-                info.minZoom <= 10 -> MarkerIcons.CLUSTER_HIGH_DENSITY
-                size < 10 -> MarkerIcons.CLUSTER_LOW_DENSITY
-                else -> MarkerIcons.CLUSTER_MEDIUM_DENSITY
-            }
-            marker.subCaptionText = if (info.minZoom == 10) {
-                (info.tag as ItemData).gu // 행정 구역명 표시
-            } else {
-                ""
-            }
-            marker.anchor = DefaultClusterMarkerUpdater.DEFAULT_CLUSTER_ANCHOR
-            marker.captionText = size.toString()
-            marker.setCaptionAligns(Align.Center)
-            marker.captionColor = Color.WHITE
-            marker.captionHaloColor = Color.TRANSPARENT
-            marker.onClickListener = DefaultClusterOnClickListener(info)
-        }
-        .leafMarkerUpdater { info, marker -> // 개별 마커 업데이트 로직
-            marker.icon = Marker.DEFAULT_ICON
-            marker.anchor = Marker.DEFAULT_ANCHOR
-            marker.captionText = (info.tag as ItemData).name
-            marker.setCaptionAligns(Align.Bottom)
-            marker.captionColor = Color.BLACK
-            marker.captionHaloColor = Color.WHITE
-            marker.subCaptionText = ""
-            marker.onClickListener = null
-        }
-        .build()
-
-    // 생성된 클러스터에 데이터 추가 및 지도와 연결
-    clusterer.addAll(keyTagMap)
-    clusterer.map = naverMap
-}
-
-// NaverMap 설정 및 위치 추적 모드 설정
-private fun setupNaverMapWithLocationTracking(
-    naverMap: NaverMap,
-    locationSource: FusedLocationSource
-) {
-    // 지도 초기 설정 (옵션)
-    naverMap.uiSettings.isLocationButtonEnabled = true // 위치 버튼 활성화
-    naverMap.locationSource = locationSource // 위치 소스 설정
 }
 
 // 권한 요청 및 결과 처리
@@ -262,75 +225,135 @@ fun HandlePermissions(
 
     // Compose의 `LaunchedEffect`로 권한 요청 트리거
     LaunchedEffect(Unit) {
-        launcher.launch( // 권한 요청 시작
-            arrayOf(
-                android.Manifest.permission.ACCESS_FINE_LOCATION, // 정확한 위치 권한
-                android.Manifest.permission.ACCESS_COARSE_LOCATION // 대략적인 위치 권한
+        //이미 권한이 있는 경우
+        if (ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            setupNaverMapWithLocationTracking(naverMap, locationSource)
+        } else { //권한이 없다면 권한 요청
+            launcher.launch(
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION, // 정확한 위치 권한
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION // 대략적인 위치 권한
+                )
             )
+        }
+    }
+}
+
+/**
+ * 구 선택을 위한 드롭다운 메뉴 컴포저블.
+ *
+ * @param districtList 구 이름의 리소스 ID 리스트.
+ * @param selectedDistrict 현재 선택된 구의 리소스 ID. 선택되지 않은 경우 null.
+ * @param onDistrictSelected 사용자가 구를 선택했을 때 호출되는 콜백. 선택된 구의 리소스 ID를 반환.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DistrictDropdownMenu(
+    districtList: List<Int>, // 드롭다운에 표시할 구 이름의 리소스 ID 리스트
+    @StringRes selectedDistrict: Int?, // 현재 선택된 구의 리소스 ID
+    onDistrictSelected: (Int) -> Unit, // 구를 선택했을 때 호출되는 콜백
+    modifier: Modifier
+) {
+    // 드롭다운 메뉴 확장 여부를 관리하는 상태
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    // 선택된 구 이름
+    val selectedDistrictText = selectedDistrict?.let { stringResource(it) } ?: ""
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }, // 드롭다운 열기/닫기 토글
+        modifier = modifier
+    ) {
+        // 선택된 구를 표시하는 텍스트 필드
+        OutlinedTextField(
+            value = selectedDistrictText, // 선택된 구 이름 표시
+            onValueChange = {},
+            readOnly = true, // 읽기 전용
+            label = { Text(stringResource(R.string.select_district)) }, // 레이블 설정
+            trailingIcon = {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
+                    contentDescription = null
+                )
+            },
+            modifier = Modifier.menuAnchor() // 메뉴와 텍스트 필드를 연결
+        )
+
+        // 드롭다운 메뉴
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false } // 메뉴 외부를 클릭하면 닫힘
+        ) {
+            // 구 이름 리스트를 순회하며 항목 생성
+            districtList.forEach { district ->
+                DistrictDropdownMenuItem(
+                    districtResId = district, // 구 이름 리소스 ID 전달
+                    onSelected = {
+                        onDistrictSelected(it) // 선택된 구 ID를 콜백으로 반환
+                        expanded = false // 선택 후 드롭다운 닫기
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 드롭다운 메뉴의 개별 항목을 표시하는 컴포저블.
+ *
+ * @param districtResId 구 이름의 리소스 ID.
+ * @param onSelected 항목이 선택되었을 때 호출되는 콜백. 선택된 구의 리소스 ID를 반환.
+ */
+@Composable
+fun DistrictDropdownMenuItem(
+    @StringRes districtResId: Int, // 구 이름의 리소스 ID
+    onSelected: (Int) -> Unit // 선택된 구의 리소스 ID를 반환하는 콜백
+) {
+    DropdownMenuItem(
+        text = { Text(text = stringResource(districtResId)) }, // 구 이름 표시
+        onClick = { onSelected(districtResId) } // 클릭 시 콜백 호출
+    )
+}
+
+/**
+ * 로딩 인디케이터를 표시하는 컴포저블
+ */
+@Composable
+fun LoadingIndicator() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.3f))
+            .clickable(enabled = false) {},
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.width(64.dp),
+            color = MaterialTheme.colorScheme.secondary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
     }
 }
 
-//맵뷰의 생명주기 관리
+/**
+ * 에러 메시지를 표시하는 컴포저블
+ *
+ * @param resourceId 에러 메시지를 표시할 리소스 ID
+ */
 @Composable
-fun ManageMapViewLifecycle(
-    lifecycle: Lifecycle,
-    mapView: MapView,
-    naverMapState: NaverMap?
-) {
-    DisposableEffect(lifecycle) {
-        // MapView의 생명주기를 Android Lifecycle과 동기화하는 Observer 정의
-        val lifecycleObserver = object : DefaultLifecycleObserver {
-            override fun onCreate(owner: LifecycleOwner) {
-                // MapView가 아직 초기화되지 않은 경우에만 onCreate 호출 (재초기화 방지)
-                if (naverMapState == null) mapView.onCreate(null) // MapView 생성
-            }
-
-            override fun onStart(owner: LifecycleOwner) {
-                mapView.onStart() //MapView 시작
-            }
-
-            override fun onResume(owner: LifecycleOwner) {
-                mapView.onResume() //MapView 활성화
-            }
-
-            override fun onPause(owner: LifecycleOwner) {
-                mapView.onPause() //MapView 일시 중지
-            }
-
-            override fun onStop(owner: LifecycleOwner) {
-                mapView.onStop() //MapView 정지
-            }
-        }
-
-        // Lifecycle에 Observer를 추가
-        lifecycle.addObserver(lifecycleObserver)
-
-        // DisposableEffect가 해제될 때 Observer 제거
-        onDispose {
-            lifecycle.removeObserver(lifecycleObserver)
-        }
+fun ErrorMessage(resourceId: Int) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = stringResource(id = resourceId),
+            color = Color.Red,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
-
-//클러스터링에서 사용되는 키 클래스
-private class ItemKey(val id: Int, private val latLng: LatLng) : ClusteringKey {
-    //마커의 위치를 반환
-    override fun getPosition() = latLng
-
-    //두 ID 값을 비교하여 ItemKey 객체가 동일한지 비교
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || javaClass != other.javaClass) return false
-        val itemKey = other as ItemKey
-        return id == itemKey.id
-    }
-
-    //ID 값을 기반으로 해시 코드를 생성
-    override fun hashCode() = id
-}
-
-//클러스터링 마커의 추가 정보를 저장하는 데이터 클래스
-private class ItemData(val name: String, val gu: String)
 
 private const val LOCATION_PERMISSION_REQUEST_CODE = 1000

@@ -75,6 +75,10 @@ class BinListViewModel @Inject constructor(
             val binsResult = clothingBinRepository.getClothingBins(district, page, perPage)
             binsResult.onSuccess { bins ->
                 _clothingBins.value = bins
+                //선택한 구가 바뀌었을 때 저장
+                if (_selectedApiSource.value != district) {
+                    _selectedApiSource.value = district
+                }
             }.onFailure {
                 handleApiFailure(it) // 에러 처리
             }
@@ -104,7 +108,6 @@ class BinListViewModel @Inject constructor(
      * @param perPage 한 페이지당 데이터 개수.
      */
     fun onDistrictSelected(apiSource: ApiSource, perPage: Int) {
-        _selectedApiSource.value = apiSource
         _currentPage.value = 1 // 페이지 초기화
         loadClothingBins(apiSource, _currentPage.value, perPage)
     }
@@ -133,7 +136,12 @@ class BinListViewModel @Inject constructor(
         loadClothingBins(apiSource, _currentPage.value, perPage) // 이전 페이지 데이터 로드
     }
 
-    // CSV 파일 로드 함수
+    /**
+     * CSV 파일을 로드하여 저장 함수
+     *
+     * @param inputStream 한 페이지에 표시할 항목 수
+     * @param apiSource 선택된 구 정보
+     */
     fun loadCsv(inputStream: InputStream, apiSource: ApiSource) {
         viewModelScope.launch {
             _clothingBins.value = clothingBinRepository.parseCsv(inputStream, apiSource)

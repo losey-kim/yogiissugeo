@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.clustering.Clusterer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,15 @@ class MapViewModel @Inject constructor(
     private val _naverMapState by lazy { MutableStateFlow<NaverMap?>(null) }
     val naverMapState: StateFlow<NaverMap?> = _naverMapState
 
+    //Cluster
+    private val _clusterer = MutableStateFlow<Clusterer<ItemKey>?>(null)
+    val clusterer: StateFlow<Clusterer<ItemKey>?> = _clusterer
+
+    //keyTagMap
+    private val _keyTagMap = MutableStateFlow<Map<ItemKey, ItemData>?>(null)
+    val keyTagMap: StateFlow<Map<ItemKey, ItemData>?> = _keyTagMap
+
+
     /**
      * NaverMap 상태를 설정하는 함수.
      * 최초 상태가 null인 경우에만 NaverMap 객체를 설정합니다.
@@ -34,6 +44,25 @@ class MapViewModel @Inject constructor(
         if (_naverMapState.value == null) {
             _naverMapState.value = naverMap
         }
+    }
+
+    /**
+     * 클러스터를 객체 설정
+     *
+     * @param newClusterer 초기화할 clusterer
+     */
+    fun setClusterer(newClusterer: Clusterer<ItemKey>) {
+        _clusterer.value = newClusterer
+    }
+
+    /**
+     * ItemKey와 ItemData의 매핑 데이터를 설정
+     * null인 경우 초기화
+     *
+     * @param newKeyTagMap 새로운 매핑 데이터 (Map<ItemKey, ItemData>)
+     */
+    fun setKeyTagMap(newKeyTagMap: Map<ItemKey, ItemData>?) {
+        _keyTagMap.value = newKeyTagMap
     }
 
     /**
