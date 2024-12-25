@@ -19,15 +19,15 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.personal.yogiissugeo"
+    namespace = "com.yogiissugeo.android"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.personal.yogiissugeo"
+        applicationId = "com.yogiissugeo.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
