@@ -59,7 +59,6 @@ import com.personal.yogiissugeo.ui.nav.NavRoutes
  */
 @Composable
 fun ClothingBinScreen(
-    navController: NavHostController,
     binListViewModel: BinListViewModel = hiltViewModel(),
     districtViewModel: DistrictViewModel = hiltViewModel()
 ) {
@@ -114,7 +113,7 @@ fun ClothingBinScreen(
             Spacer(modifier = Modifier.height(8.dp)) // 간격 추가
 
             // 성공적으로 데이터를 가져왔을 때 LazyColumn으로 목록 렌더링
-            ClothingBinList(clothingBins = clothingBins, navController = navController)
+            ClothingBinList(clothingBins = clothingBins)
         }
 
         // 로딩 상태 처리
@@ -227,15 +226,14 @@ fun ErrorMessage(resourceId: Int) {
  * @param navController 네비게이션 컨트롤러
  */
 @Composable
-fun ClothingBinList(clothingBins: List<ClothingBin>, navController: NavHostController) {
+fun ClothingBinList(clothingBins: List<ClothingBin>) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         items(clothingBins) { bin ->
             BinItem(bin) {
-                //클릭 시 이동
-                navController.navigate(NavRoutes.Map)
+                //TODO 클릭 시 이동
             }
         }
     }

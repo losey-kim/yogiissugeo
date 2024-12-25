@@ -17,13 +17,14 @@ hilt = "2.48"
 coroutines = "1.7.3"
 naverMap = "3.20.0"
 navigation = "2.7.3"
-location = "21.0.1"
+location = "21.3.0"
 uiTextGoogleFonts = "1.7.6"
 roomCommon = "2.6.1"
 roomKtx = "2.6.1"
 googleGms = "4.4.2"
 firebaseBom = "33.7.0"
 kotlinxSerializationJson = "1.6.3"
+playServicesAds = "23.6.0"
 
 [libraries]
 # AndroidX
@@ -69,6 +70,9 @@ naver-map = { group = "com.naver.maps", name = "map-sdk", version.ref = "naverMa
 
 #Google 위치 서비스
 play-service-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "location" }
+
+#ADMob
+play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
 
 #Room
 androidx-room-common = { group = "androidx.room", name = "room-common", version.ref = "roomCommon" }

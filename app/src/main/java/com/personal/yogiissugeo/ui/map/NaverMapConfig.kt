@@ -126,4 +126,7 @@ fun setupNaverMapWithLocationTracking(
     // 지도 초기 설정 (옵션)
     naverMap.uiSettings.isLocationButtonEnabled = true // 위치 버튼 활성화
     naverMap.locationSource = locationSource // 위치 소스 설정
+
+    //TODO 설정페이지에 네이버 지도 라이선스 연결해야함
+    naverMap.uiSettings.isLogoClickEnabled = false
 }

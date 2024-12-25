@@ -29,6 +29,6 @@ fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier) 
         //지도화면
         composable(NavigationItem.Map.route) { NaverMapScreen() }
         //저장된 항목 화면
-        composable(NavigationItem.Saved.route) { ClothingBinScreen(navController) }
+        composable(NavigationItem.Saved.route) { ClothingBinScreen() }
     }
 }

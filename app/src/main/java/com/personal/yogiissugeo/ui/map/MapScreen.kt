@@ -266,7 +266,7 @@ fun DistrictDropdownMenu(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded }, // 드롭다운 열기/닫기 토글
-        modifier = modifier
+        modifier = modifier.background(MaterialTheme.colorScheme.background)
     ) {
         // 선택된 구를 표시하는 텍스트 필드
         OutlinedTextField(
