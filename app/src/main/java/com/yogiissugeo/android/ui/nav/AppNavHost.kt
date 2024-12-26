@@ -7,12 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.yogiissugeo.android.ui.list.ClothingBinScreen
 import com.yogiissugeo.android.ui.map.NaverMapScreen
-
-//네비게이션 루트 상수
-object NavRoutes {
-    const val BinList = "binListScreen"
-    const val Map = "mapScreen"
-}
+import com.yogiissugeo.android.ui.setting.SettingScreen
 
 /**
  * 앱 내 내비게이션을 관리하는 컴포저블 함수
@@ -30,5 +25,7 @@ fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier) 
         composable(NavigationItem.Map.route) { NaverMapScreen() }
         //저장된 항목 화면
         composable(NavigationItem.Saved.route) { ClothingBinScreen() }
+        //설정화면
+        composable(NavigationItem.Setting.route) { SettingScreen() }
     }
 }

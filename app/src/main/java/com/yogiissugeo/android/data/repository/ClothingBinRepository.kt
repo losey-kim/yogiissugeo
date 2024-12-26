@@ -72,6 +72,11 @@ class ClothingBinRepository @Inject constructor(
         }
     }
 
+    //전체 페이지 수를 가져옴
+    suspend fun getTotalCount(apiSource: ApiSource,): Int {
+        return districtDataCountDao.getTotalCount(apiSource.name)?: 0
+    }
+
     /**
      * API를 호출하여 데이터를 가져오고 Room에 저장
      *

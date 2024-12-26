@@ -6,11 +6,15 @@ import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -49,11 +53,11 @@ fun YigApp(modifier: Modifier = Modifier) {
             Column(
                 modifier = Modifier.navigationBarsPadding() // 시스템 내비게이션 영역만큼 패딩 추가
             ) {
-                // 하단 네비게이션 바
-                BottomNavigationBar(navController)
-
                 // 하단 배너 광고
                 AdMobBannerView(adUnitId = "ca-app-pub-4848324410383539/5955518384")
+
+                // 하단 네비게이션 바
+                BottomNavigationBar(navController)
             }
         }
     ) { padding ->
@@ -67,6 +71,11 @@ fun YigApp(modifier: Modifier = Modifier) {
                 Modifier
                     .fillMaxSize()
                     .consumeWindowInsets(padding)
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Horizontal,
+                        ),
+                    )
             ) {
                 AppNavHost(navController = navController)
             }
@@ -90,9 +99,6 @@ fun TopAppBar() {
                 color = MaterialTheme.colorScheme.onBackground
             )
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = Color.Transparent
-        ),
         modifier = Modifier
     )
 }

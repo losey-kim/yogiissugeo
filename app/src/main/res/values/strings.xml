@@ -45,12 +45,13 @@
     <!-- ClothingBinScreen -->
 
     <!-- NaverMapScreen -->
-    <string name="map_more">더보기</string>
+    <string name="map_more">더보기(%1d/%2d)</string>
     <!-- NaverMapScreen -->
 
     <!-- Navigation -->
     <string name="nav_map">지도</string>
     <string name="nav_saved">저장</string>
+    <string name="nav_setting">설정</string>
     <!-- Navigation -->
 
     <!-- Permission -->

@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
@@ -18,7 +19,8 @@ fun BottomNavigationBar(navController: NavHostController) {
     // BottomNavigationBar에 표시할 항목 정의
     val items = listOf(
         NavigationItem.Map, // 지도 화면 항목
-        NavigationItem.Saved // 저장된 항목 화면
+        NavigationItem.Saved, // 저장된 항목 화면
+        NavigationItem.Setting // 설정 화면 항목
     )
 
     // BottomNavigationBar UI 구성
@@ -35,17 +37,10 @@ fun BottomNavigationBar(navController: NavHostController) {
                     Icon(
                         // 선택 상태에 따라 다른 아이콘 표시
                         painterResource(if (currentRoute == item.route) item.selectedIcon else item.icon),
-                        contentDescription = item.title
+                        contentDescription = stringResource(item.title)
                     )
                 },
-                label = { Text(item.title) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
+                label = { Text(stringResource(item.title)) },
                 onClick = {
                     // 해당 경로로 네비게이션 이동
                     navController.navigate(item.route) {

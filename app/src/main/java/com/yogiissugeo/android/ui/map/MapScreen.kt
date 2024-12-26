@@ -1,29 +1,33 @@
 package com.yogiissugeo.android.ui.map
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,13 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.util.FusedLocationSource
 import com.yogiissugeo.android.R
@@ -60,21 +67,26 @@ fun NaverMapScreen(
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
 
+    // 지도 조작 상태
+    var isMapInteracting by rememberSaveable { mutableStateOf(false) }
+
     //의류수거함 값
     val clothingBins = binListViewModel.clothingBins.collectAsState().value
-    val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
     val isLoading by binListViewModel.isLoading.collectAsState() // 로딩 상태
     val errorMessage by binListViewModel.errorMessage.collectAsState() // 에러 메시지
     val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
+
+    //페이지 관련
+    val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
+    val totalPage by binListViewModel.totalPage.collectAsState() // 현재 페이지 번호
+    val perPage = 100 // 페이지당 항목 수
 
     //지도 관련
     val mapView = mapViewModel.mapView
     val naverMapState by mapViewModel.naverMapState.collectAsState()
     val clusterer = mapViewModel.clusterer.collectAsState()
     val keyTagMap = mapViewModel.keyTagMap.collectAsState()
-    val perPage = 100 // 페이지당 항목 수
-
 
     // 위치 권한
     val locationSource = remember {
@@ -88,58 +100,87 @@ fun NaverMapScreen(
         // AndroidView로 MapView를 Compose UI에 포함
         AndroidView(
             factory = { mapView }, // MapView를 생성
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) { mapView ->
             // MapView가 준비되었을 때 호출되는 콜백
             mapView.getMapAsync { naverMap ->
                 if (naverMapState == null) {
                     mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
                     setupNaverMap(naverMap) // NaverMap 설정
+
+                    // 카메라 변경 이벤트
+                    naverMap.addOnCameraChangeListener { reason, _ ->
+                        //사용자의 버튼 선택으로 인해 카메라가 움직였음
+                        if (reason == CameraUpdate.REASON_GESTURE){
+                            isMapInteracting = true
+                        }
+                    }
+
+                    // 카메라 대기 이벤트
+                    naverMap.addOnCameraIdleListener {
+                        isMapInteracting = false
+                    }
                 }
             }
         }
 
         // 구 선택 드롭다운 메뉴
-        DistrictDropdownMenu(
-            districtList = supportDistricts.value.map { it.displayNameRes },
-            selectedDistrict = selectedDistrict?.displayNameRes,
-            onDistrictSelected = { selectedName ->
-                //구 선택 시 클러스터 초기화
-                mapViewModel.setKeyTagMap(null)
-                val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
-                if (selectedSource in ApiSource.CSV_SOURCES) { //노원구, 은평구, 마포구, 중구
-                    // CSV 파일을 assets에서 읽어오는 코드
-                    selectedSource.csvName?.let { csvName ->
-                        context.loadCsvFromAssets(csvName, { inputStream ->
-                            // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
-                            binListViewModel.loadCsv(inputStream, selectedSource)
-                        }) {
-                            //파일 로드 실패 시
-                            Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                    }
-                }
-                else { //이외의 구는 API요청
-                    binListViewModel.onDistrictSelected(selectedSource, perPage)
-                }
-            },
+        // 지도 드래그 상태에 따라 UI 표시 제어
+        AnimatedVisibility(
+            visible = !isMapInteracting,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter)
-        )
+        ){
+            DistrictDropdownMenu(
+                districtList = supportDistricts.value.map { it.displayNameRes },
+                selectedDistrict = selectedDistrict?.displayNameRes,
+                onDistrictSelected = { selectedName ->
+                    //구 선택 시 클러스터 초기화
+                    mapViewModel.setKeyTagMap(null)
+                    val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                    if (selectedSource in ApiSource.CSV_SOURCES) { //노원구, 은평구, 마포구, 중구
+                        // CSV 파일을 assets에서 읽어오는 코드
+                        selectedSource.csvName?.let { csvName ->
+                            context.loadCsvFromAssets(csvName, { inputStream ->
+                                // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
+                                binListViewModel.loadCsv(inputStream, selectedSource)
+                            }) {
+                                //파일 로드 실패 시
+                                Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT)
+                                    .show()
+                            }
+                        }
+                    } else { //이외의 구는 API요청
+                        binListViewModel.onDistrictSelected(selectedSource, perPage)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
 
-        //더보기 버튼(로딩 및 에러아닐 때 출력)
-        if (!isLoading && errorMessage == null) {
-            Button(
+        //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
+        val shouldShowMoreButton = clothingBins.isNotEmpty() && (currentPage != totalPage && !isMapInteracting)
+        AnimatedVisibility(
+            visible = shouldShowMoreButton,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 44.dp, start = 16.dp, end = 16.dp)
+        ){
+            ElevatedButton(
                 onClick = {
                     // "더보기" 버튼 클릭 시 현재 좌표 전달
                     binListViewModel.goToNextPage(perPage)
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 44.dp, start = 16.dp, end = 16.dp)
+                colors = ButtonDefaults.elevatedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                elevation = ButtonDefaults.elevatedButtonElevation(8.dp),
             ) {
-                Text(stringResource(R.string.map_more))
+                Text(stringResource(R.string.map_more, currentPage, totalPage))
             }
         }
 
@@ -148,9 +189,9 @@ fun NaverMapScreen(
             LoadingIndicator()
         }
 
-        // 에러 상태 처리
+        // 에러 시 토스트메시지 출력
         errorMessage?.let { resourceId ->
-            ErrorMessage(resourceId = resourceId)
+            ErrorMessage(context, resourceId)
         }
     }
 
@@ -257,62 +298,63 @@ fun DistrictDropdownMenu(
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     // 선택된 구 이름
-    val selectedDistrictText = selectedDistrict?.let { stringResource(it) } ?: ""
+    val selectedDistrictText =
+        selectedDistrict?.let { stringResource(it) } ?: stringResource(R.string.select_district)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }, // 드롭다운 열기/닫기 토글
-        modifier = modifier.background(MaterialTheme.colorScheme.background)
+        onExpandedChange = { expanded = it },
+        modifier = modifier.padding(top = 32.dp)
     ) {
-        // 선택된 구를 표시하는 텍스트 필드
-        OutlinedTextField(
-            value = selectedDistrictText, // 선택된 구 이름 표시
-            onValueChange = {},
-            readOnly = true, // 읽기 전용
-            label = { Text(stringResource(R.string.select_district)) }, // 레이블 설정
-            trailingIcon = {
+        ElevatedButton(
+            onClick = {
+
+            },
+            colors = ButtonDefaults.elevatedButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            elevation = ButtonDefaults.elevatedButtonElevation(8.dp),
+            modifier = modifier
+                .menuAnchor()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 선택된 구 텍스트
+                Text(text = selectedDistrictText)
+
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+
+                // 드롭다운 아이콘
                 Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
+                    painter = if (expanded) painterResource(R.drawable.ic_arrow_up) else painterResource(
+                        R.drawable.ic_arrow_down
+                    ),
                     contentDescription = null
                 )
-            },
-            modifier = Modifier.menuAnchor() // 메뉴와 텍스트 필드를 연결
-        )
+            }
+        }
 
         // 드롭다운 메뉴
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false } // 메뉴 외부를 클릭하면 닫힘
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .exposedDropdownSize(true)
+                .height(200.dp)
         ) {
-            // 구 이름 리스트를 순회하며 항목 생성
             districtList.forEach { district ->
-                DistrictDropdownMenuItem(
-                    districtResId = district, // 구 이름 리소스 ID 전달
-                    onSelected = {
-                        onDistrictSelected(it) // 선택된 구 ID를 콜백으로 반환
-                        expanded = false // 선택 후 드롭다운 닫기
-                    }
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(district)) },
+                    onClick = {
+                        onDistrictSelected(district)
+                        expanded = false // 항목 클릭 시 드롭다운 닫기
+                    },
                 )
             }
         }
     }
-}
-
-/**
- * 드롭다운 메뉴의 개별 항목을 표시하는 컴포저블.
- *
- * @param districtResId 구 이름의 리소스 ID.
- * @param onSelected 항목이 선택되었을 때 호출되는 콜백. 선택된 구의 리소스 ID를 반환.
- */
-@Composable
-fun DistrictDropdownMenuItem(
-    @StringRes districtResId: Int, // 구 이름의 리소스 ID
-    onSelected: (Int) -> Unit // 선택된 구의 리소스 ID를 반환하는 콜백
-) {
-    DropdownMenuItem(
-        text = { Text(text = stringResource(districtResId)) }, // 구 이름 표시
-        onClick = { onSelected(districtResId) } // 클릭 시 콜백 호출
-    )
 }
 
 /**
@@ -328,9 +370,7 @@ fun LoadingIndicator() {
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.width(64.dp),
-            color = MaterialTheme.colorScheme.secondary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeCap = StrokeCap.Round
         )
     }
 }
@@ -338,17 +378,12 @@ fun LoadingIndicator() {
 /**
  * 에러 메시지를 표시하는 컴포저블
  *
+ * @param context Context
  * @param resourceId 에러 메시지를 표시할 리소스 ID
  */
 @Composable
-fun ErrorMessage(resourceId: Int) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = stringResource(id = resourceId),
-            color = Color.Red,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+fun ErrorMessage(context: Context, resourceId: Int) {
+    Toast.makeText(context, stringResource(id = resourceId), Toast.LENGTH_SHORT).show()
 }
 
 private const val LOCATION_PERMISSION_REQUEST_CODE = 1000

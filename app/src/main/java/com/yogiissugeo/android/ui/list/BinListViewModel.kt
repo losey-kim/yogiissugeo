@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.InputStream
 import javax.inject.Inject
+import kotlin.math.ceil
 
 /**
  * 의류 수거함 데이터를 관리하는 ViewModel 클래스.
@@ -25,8 +26,6 @@ import javax.inject.Inject
 class BinListViewModel @Inject constructor(
     private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레포지토리
 ) : ViewModel() {
-    val itemsPerPage = 3 // 페이지당 항목 수
-
     /**
      * 로딩 상태를 나타냅니다.
      * true일 경우 데이터 로딩 중, false일 경우 로딩 완료 상태.
@@ -51,8 +50,14 @@ class BinListViewModel @Inject constructor(
      * 현재 페이지 번호를 나타내는 상태.
      * 페이지 전환 시 업데이트됨.
      */
-    private val _currentPage = MutableStateFlow(1)
+    private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage
+
+    /**
+     * 전체 페이지 수를 나타내는 상태.
+     */
+    private val _totalPage = MutableStateFlow(0)
+    val totalPage: StateFlow<Int> = _totalPage
 
     /**
      * 선택한 구의 API 소스를 저장하는 상태.
@@ -75,9 +80,13 @@ class BinListViewModel @Inject constructor(
             val binsResult = clothingBinRepository.getClothingBins(district, page, perPage)
             binsResult.onSuccess { bins ->
                 _clothingBins.value = bins
+                // 현재 페이지 번호 증가
+                _currentPage.value += 1
                 //선택한 구가 바뀌었을 때 저장
                 if (_selectedApiSource.value != district) {
                     _selectedApiSource.value = district
+                    //전체 페이지 수 계산
+                    _totalPage.value = ceil(clothingBinRepository.getTotalCount(district).toDouble() / perPage).toInt()
                 }
             }.onFailure {
                 handleApiFailure(it) // 에러 처리
@@ -108,7 +117,7 @@ class BinListViewModel @Inject constructor(
      * @param perPage 한 페이지당 데이터 개수.
      */
     fun onDistrictSelected(apiSource: ApiSource, perPage: Int) {
-        _currentPage.value = 1 // 페이지 초기화
+        _currentPage.value = 0 // 페이지 초기화
         loadClothingBins(apiSource, _currentPage.value, perPage)
     }
 
@@ -120,8 +129,7 @@ class BinListViewModel @Inject constructor(
     fun goToNextPage(perPage: Int) {
         val apiSource = _selectedApiSource.value ?: return
         val nextPage = _currentPage.value + 1
-        _currentPage.value = nextPage // 현재 페이지 번호 증가
-        loadClothingBins(apiSource, _currentPage.value, perPage) // 다음 페이지 데이터 로드
+        loadClothingBins(apiSource, nextPage, perPage) // 다음 페이지 데이터 로드
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.yogiissugeo.android.ui.map
 
 import android.graphics.Color
+import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraAnimation
@@ -98,14 +99,17 @@ fun addCluster(
 
     // 의류 수거함 데이터를 기반으로 키와 태그 맵 생성
     val newKeyTagMap = buildMap {
-        clothingBins.fastForEachIndexed { _, bin ->
-            put(
-                ItemKey(
-                    bin.id.hashCode(),
-                    LatLng(bin.latitude?.toDouble() ?: 0.0, bin.longitude?.toDouble() ?: 0.0)
-                ),
-                ItemData(bin.address.orEmpty(), bin.district.orEmpty())
-            )
+        clothingBins.fastForEach { bin ->
+            val keyData = try {
+                val lat = bin.latitude?.toDouble() ?: 0.0
+                val lng = bin.longitude?.toDouble() ?: 0.0
+                val key = ItemKey(bin.id.hashCode(), LatLng(lat, lng))
+                val data = ItemData(bin.address.orEmpty(), bin.district.orEmpty())
+                key to data
+            } catch (e: NumberFormatException) {
+                null // 예외 발생 시 null 반환
+            }
+            keyData?.let { (key, data) -> put(key, data) }
         }
     } + (currentTagMap ?: emptyMap())
 
