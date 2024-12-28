@@ -33,7 +33,7 @@ class RemoteConfigManager @Inject constructor(
      * - 기본값을 설정하고, fetchAndActivate를 호출하여 RemoteConfig 값을 가져옵니다.
      * - 초기화 완료 후, Naver 지도 SDK를 설정.
      */
-    fun initialize() {
+    fun initialize(onComplete: () -> Unit) {
         //기본값 설정
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
         //Config값 가져오기
@@ -44,6 +44,7 @@ class RemoteConfigManager @Inject constructor(
                     initializeNaverMapSdk(naverClientId)
                 }
                 _isInitialized.value = true
+                onComplete.invoke()
             }
 
         //Config값 Updated 시 호출

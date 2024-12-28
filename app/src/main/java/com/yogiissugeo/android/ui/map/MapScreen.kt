@@ -10,8 +10,6 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
@@ -39,8 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -56,6 +51,7 @@ import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
+import com.yogiissugeo.android.ui.list.LoadingIndicator
 import com.yogiissugeo.android.utils.common.loadCsvFromAssets
 
 @Composable
@@ -354,24 +350,6 @@ fun DistrictDropdownMenu(
                 )
             }
         }
-    }
-}
-
-/**
- * 로딩 인디케이터를 표시하는 컴포저블
- */
-@Composable
-fun LoadingIndicator() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.3f))
-            .clickable(enabled = false) {},
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(
-            strokeCap = StrokeCap.Round
-        )
     }
 }
 

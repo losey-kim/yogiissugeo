@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,7 +31,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -38,10 +41,34 @@ import com.google.android.gms.ads.AdView
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.ui.nav.AppNavHost
 import com.yogiissugeo.android.ui.nav.BottomNavigationBar
+import com.yogiissugeo.android.ui.splash.SplashScreen
+import com.yogiissugeo.android.utils.config.RemoteConfigManager
+
 
 @Composable
-fun YigApp(modifier: Modifier = Modifier) {
+fun AppEntryPoint(remoteConfigManager: RemoteConfigManager) {
+    // 초기화 상태 관리
+    val isInitialized = remember { mutableStateOf(false) }
+
+    // 초기화 작업 실행
+    LaunchedEffect(Unit) {
+        remoteConfigManager.initialize {
+            isInitialized.value = true // 초기화 완료 시 true로 설정
+        }
+    }
+
+    // 초기화 상태에 따라 다른 화면 표시
+    if (isInitialized.value) {
+        MainApp()  // 초기화 완료 후 메인 화면
+    } else {
+        SplashScreen() // 초기화 중 로딩 화면
+    }
+}
+
+@Composable
+fun MainApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+
     Scaffold(
         modifier = modifier,
         containerColor = Color.Transparent,
@@ -94,8 +121,6 @@ fun TopAppBar() {
         title = {
             Text(
                 text = stringResource(R.string.app_name),
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
         },
@@ -125,6 +150,13 @@ fun AdMobBannerView(adUnitId: String, modifier: Modifier = Modifier) {
             adView.loadAd(AdRequest.Builder().build())
         }
     )
+}
+
+@Preview
+@Composable
+fun TopAppBarPreview() {
+    // 툴바
+    TopAppBar()
 }
 
 // Helper function: Get adaptive ad size based on screen width
