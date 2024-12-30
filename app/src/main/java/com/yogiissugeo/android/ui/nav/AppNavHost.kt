@@ -5,7 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.yogiissugeo.android.ui.list.FavoriteScreen
+import com.yogiissugeo.android.ui.list.BookmarksScreen
 import com.yogiissugeo.android.ui.map.NaverMapScreen
 import com.yogiissugeo.android.ui.setting.SettingScreen
 
@@ -24,7 +24,7 @@ fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier, 
         //지도화면
         composable(NavigationItem.Map.route) { NaverMapScreen() }
         //저장된 항목 화면
-        composable(NavigationItem.Saved.route) { FavoriteScreen() }
+        composable(NavigationItem.Saved.route) { BookmarksScreen() }
         //설정화면
         composable(NavigationItem.Setting.route) { SettingScreen() }
     }

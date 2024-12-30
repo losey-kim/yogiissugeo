@@ -48,6 +48,12 @@
     <string name="map_more">더보기(%1d/%2d)</string>
     <!-- NaverMapScreen -->
 
+    <!-- SavedScreen -->
+    <string name="bookmarks_empty_error">아직 저장된 수거함이 없어요!</string>
+    <string name="bookmarks_empty_description">관심 있는 수거함을 저장해보세요.</string>
+    <string name="bookmarks_remove">저장 삭제</string>
+    <!-- SavedScreen -->
+
     <!-- Navigation -->
     <string name="nav_map">지도</string>
     <string name="nav_saved">저장</string>

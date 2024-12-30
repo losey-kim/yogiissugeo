@@ -1,15 +1,15 @@
 package com.yogiissugeo.android.ui.nav
 
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
@@ -24,9 +24,7 @@ fun BottomNavigationBar(navController: NavHostController) {
     )
 
     // BottomNavigationBar UI 구성
-    NavigationBar(
-        containerColor = Color.White // BottomNavigationBar의 배경 색상 설정
-    ) {
+    NavigationBar {
         // 현재 네비게이션 경로를 추적하여 선택 상태를 결정
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
@@ -36,7 +34,7 @@ fun BottomNavigationBar(navController: NavHostController) {
                 icon = {
                     Icon(
                         // 선택 상태에 따라 다른 아이콘 표시
-                        painterResource(if (currentRoute == item.route) item.selectedIcon else item.icon),
+                        painter = painterResource(if (currentRoute == item.route) item.selectedIcon else item.icon),
                         contentDescription = stringResource(item.title)
                     )
                 },

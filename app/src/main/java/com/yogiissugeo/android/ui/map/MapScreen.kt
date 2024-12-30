@@ -37,9 +37,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -66,30 +68,31 @@ fun NaverMapScreen(
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
 
-    // 지도 조작 상태
-    val isMapInteracting = rememberSaveable { mutableStateOf(false) }
-
-    //의류수거함 값
-    val clothingBins = binListViewModel.clothingBins.collectAsState().value
-    val isLoading by binListViewModel.isLoading.collectAsState() // 로딩 상태
-    val errorMessage by binListViewModel.errorMessage.collectAsState() // 에러 메시지
-    val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
-    val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
-
-    //좋아요 수거함 값
-    val favoriteBins by binListViewModel.favoriteBins.collectAsState(initial = emptyList())
-    val favoriteIds = favoriteBins.map { it.id }.toSet()
-
     //페이지 관련
-    val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
-    val totalPage by binListViewModel.totalPage.collectAsState() // 현재 페이지 번호
     val perPage = 100 // 페이지당 항목 수
 
-    //지도 관련
+    // 의류수거함 관련 상태
+    val clothingBins = binListViewModel.clothingBins.collectAsState().value
+    val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
+    val isLoading by binListViewModel.isLoading.collectAsState()
+    val errorMessage by binListViewModel.errorMessage.collectAsState()
+    val selectedDistrict by binListViewModel.selectedApiSource.collectAsState()
+    val currentPage by binListViewModel.currentPage.collectAsState()
+    val totalPage by binListViewModel.totalPage.collectAsState()
+    val favoriteBins by binListViewModel.favoriteBins.collectAsState(initial = emptyList())
+    //좋아요 수거함 값
+    val favoriteIds = favoriteBins.map { it.id }.toSet()
+
+    // 지도 관련 상태
     val mapView = mapViewModel.mapView
     val naverMapState by mapViewModel.naverMapState.collectAsState()
     val clusterer = mapViewModel.clusterer.collectAsState()
     val keyTagMap = mapViewModel.keyTagMap.collectAsState()
+
+    // 로컬 상태
+    val isMapInteracting = rememberSaveable { mutableStateOf(false) } // 지도 조작 상태
+    val previousClothingBins = rememberSaveable { mutableStateOf(clothingBins) }  //의류수거함 값
+    val previousDistrict = rememberSaveable { mutableStateOf(selectedDistrict) }
 
     // 위치 권한
     val locationSource = remember {
@@ -139,7 +142,7 @@ fun NaverMapScreen(
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton = clothingBins.isNotEmpty() && (currentPage != totalPage && isMapInteracting.value)
+        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -176,11 +179,15 @@ fun NaverMapScreen(
 
     // selectedDistrict가 변경될 때 호출하여 카메라 포지션 이동
     LaunchedEffect(selectedDistrict) {
-        if (clothingBins.isNotEmpty()) {
-            clothingBins.first().longitude?.let { longitude ->
-                clothingBins.first().latitude?.let { latitude ->
-                    naverMapState?.let { naverMap ->
-                        animateCameraToPosition(latitude.toDouble(), longitude.toDouble(), naverMap)
+        //recomposition으로 재호출 되는 것 방지
+        if (previousDistrict.value != selectedDistrict){
+            previousDistrict.value = selectedDistrict
+            if (clothingBins.isNotEmpty()) {
+                clothingBins.first().longitude?.let { longitude ->
+                    clothingBins.first().latitude?.let { latitude ->
+                        naverMapState?.let { naverMap ->
+                            animateCameraToPosition(latitude.toDouble(), longitude.toDouble(), naverMap)
+                        }
                     }
                 }
             }
@@ -189,22 +196,26 @@ fun NaverMapScreen(
 
     // 수거함 데이터 변경에 따른 클러스터 업데이트
     LaunchedEffect(clothingBins) {
-        //클러스터
-        naverMapState?.let { naverMap ->
-            if (clothingBins.isNotEmpty()) {
-                // `clothingBins`를 기반으로 `ItemData` 생성
-                val itemDataList = createItemDataList(clothingBins, favoriteIds)
+        //recomposition으로 재호출 되는 것 방지
+        if (clothingBins != previousClothingBins.value) {
+            previousClothingBins.value = clothingBins
+            //클러스터
+            naverMapState?.let { naverMap ->
+                if (clothingBins.isNotEmpty()) {
+                    // `clothingBins`를 기반으로 `ItemData` 생성
+                    val itemDataList = createItemDataList(clothingBins, favoriteIds)
 
-                //클러스터 설정
-                addCluster(
-                    clusterer.value,
-                    keyTagMap.value,
-                    naverMap,
-                    itemDataList,
-                    onMarkerClick = { binId -> binListViewModel.toggleFavorite(binId) } // 콜백 전달
-                ) { newclusterer, keyTagMap ->
-                    mapViewModel.setClusterer(newclusterer)
-                    mapViewModel.setKeyTagMap(keyTagMap)
+                    //클러스터 설정
+                    addCluster(
+                        clusterer.value,
+                        keyTagMap.value,
+                        naverMap,
+                        itemDataList,
+                        onMarkerClick = { binId -> binListViewModel.toggleFavorite(binId) } // 콜백 전달
+                    ) { newclusterer, keyTagMap ->
+                        mapViewModel.setClusterer(newclusterer)
+                        mapViewModel.setKeyTagMap(keyTagMap)
+                    }
                 }
             }
         }
@@ -341,9 +352,7 @@ fun DistrictDropdownMenu(
 
                 // 드롭다운 아이콘
                 Icon(
-                    painter = if (expanded) painterResource(R.drawable.ic_arrow_up) else painterResource(
-                        R.drawable.ic_arrow_down
-                    ),
+                    painter = painterResource(if (expanded) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down),
                     contentDescription = null
                 )
             }
