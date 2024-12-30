@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.yogiissugeo.android.data.model.ClothingBin
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ClothingBinDao {
@@ -27,6 +28,17 @@ interface ClothingBinDao {
      */
     @Query("SELECT COUNT(*) FROM clothing_bin_table WHERE district = :district")
     suspend fun getStoredCountForDistrict(district: String): Int
+
+    /**
+     * 즐겨찾기된 수거함 데이터를 조회.
+     *
+     * - `favorites_table`에 저장된 `binId`를 기준으로
+     *   `clothing_bin_table`에서 해당하는 수거함 데이터를 반환.
+     *
+     * @return Flow<List<ClothingBin>> - 즐겨찾기된 수거함 리스트.
+     */
+    @Query("SELECT * FROM clothing_bin_table WHERE id IN (SELECT binId FROM favorites_table)")
+    fun getFavoriteBins(): Flow<List<ClothingBin>>
 
     /**
      * 의류 수거함 데이터를 데이터베이스에 삽입합니다.

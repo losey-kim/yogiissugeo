@@ -26,6 +26,9 @@ import kotlin.math.ceil
 class BinListViewModel @Inject constructor(
     private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레포지토리
 ) : ViewModel() {
+    //좋아요 수거함 리스트
+    val favoriteBins = clothingBinRepository.favoriteBins
+
     /**
      * 로딩 상태를 나타냅니다.
      * true일 경우 데이터 로딩 중, false일 경우 로딩 완료 상태.
@@ -93,6 +96,19 @@ class BinListViewModel @Inject constructor(
             }
 
             _isLoading.value = false // 로딩 종료
+        }
+    }
+
+    /**
+     * 좋아요 상태를 toggle합니다.
+     *
+     * @param binId toggle할 binId
+     */
+    fun toggleFavorite(binId: String) = viewModelScope.launch {
+        if (clothingBinRepository.isFavorite(binId)) {
+            clothingBinRepository.removeFavorite(binId)
+        } else {
+            clothingBinRepository.addFavorite(binId)
         }
     }
 

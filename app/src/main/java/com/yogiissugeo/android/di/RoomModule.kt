@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
+import com.yogiissugeo.android.data.local.dao.FavoriteDao
 import com.yogiissugeo.android.data.local.database.AppDatabase
+import com.yogiissugeo.android.data.local.database.MIGRATION_1_2
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,7 +35,8 @@ object RoomModule {
             context,
             AppDatabase::class.java,
             "clothing_bin_db"
-        ).build()
+        ).addMigrations(MIGRATION_1_2)
+            .build()
     }
 
     /**
@@ -56,5 +59,10 @@ object RoomModule {
     @Provides
     fun provideDistrictDataCountDao(database: AppDatabase): DistrictDataCountDao {
         return database.districtDataCountDao()
+    }
+
+    @Provides
+    fun provideFavoriteDao(database: AppDatabase): FavoriteDao {
+        return database.favoriteDao()
     }
 }

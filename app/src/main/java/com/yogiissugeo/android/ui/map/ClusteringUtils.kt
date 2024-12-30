@@ -21,4 +21,11 @@ class ItemKey(val id: Int, private val latLng: LatLng) : ClusteringKey {
 }
 
 //클러스터링 마커의 추가 정보를 저장하는 데이터 클래스
-class ItemData(val name: String, val district: String)
+data class ItemData(
+    val id: String,
+    val name: String,
+    val district: String,
+    val latitude: Double,
+    val longitude: Double,
+    var isFavorite: Boolean = false
+)

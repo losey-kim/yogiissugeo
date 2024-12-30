@@ -1,4 +1,4 @@
-package com.yogiissugeo.android.data.model
+package com.yogiissugeo.android.data.local.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

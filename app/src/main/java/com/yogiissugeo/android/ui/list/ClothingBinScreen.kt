@@ -1,7 +1,6 @@
 package com.yogiissugeo.android.ui.list
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,20 +12,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -46,6 +41,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
+import com.yogiissugeo.android.ui.component.ErrorMessage
+import com.yogiissugeo.android.ui.component.LoadingIndicator
 
 /**
  * 의류 수거함 목록을 표시하는 화면
@@ -119,25 +116,8 @@ fun ClothingBinScreen(
 
         // 에러 상태 처리
         errorMessage?.let { resourceId ->
-            ErrorMessage(resourceId = resourceId)
+            ErrorMessage(context, resourceId = resourceId)
         }
-    }
-}
-
-
-/**
- * 로드 버튼을 표시하는 컴포저블
- *
- * @param onClick 버튼 클릭 시 실행할 함수
- */
-@Composable
-fun LoadButton(enable: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = enable,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(stringResource(R.string.page_load))
     }
 }
 
@@ -180,46 +160,9 @@ fun PageControl(
 }
 
 /**
- * 로딩 인디케이터를 표시하는 컴포저블
- */
-@Composable
-fun LoadingIndicator() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.3f))
-            .clickable(enabled = false) {},
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.width(64.dp),
-            color = MaterialTheme.colorScheme.secondary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        )
-    }
-}
-
-/**
- * 에러 메시지를 표시하는 컴포저블
- *
- * @param resourceId 에러 메시지를 표시할 리소스 ID
- */
-@Composable
-fun ErrorMessage(resourceId: Int) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = stringResource(id = resourceId),
-            color = Color.Red,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
-}
-
-/**
  * 의류 수거함 리스트를 표시하는 컴포저블
  *
  * @param clothingBins 의류 수거함 리스트
- * @param navController 네비게이션 컨트롤러
  */
 @Composable
 fun ClothingBinList(clothingBins: List<ClothingBin>) {

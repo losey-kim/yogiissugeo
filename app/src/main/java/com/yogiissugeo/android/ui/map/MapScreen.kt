@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,13 +46,15 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.naver.maps.map.CameraUpdate
+import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.util.FusedLocationSource
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
+import com.yogiissugeo.android.ui.component.ErrorMessage
+import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
-import com.yogiissugeo.android.ui.list.LoadingIndicator
 import com.yogiissugeo.android.utils.common.loadCsvFromAssets
 
 @Composable
@@ -64,7 +67,7 @@ fun NaverMapScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
 
     // 지도 조작 상태
-    var isMapInteracting by rememberSaveable { mutableStateOf(false) }
+    val isMapInteracting = rememberSaveable { mutableStateOf(false) }
 
     //의류수거함 값
     val clothingBins = binListViewModel.clothingBins.collectAsState().value
@@ -72,6 +75,10 @@ fun NaverMapScreen(
     val errorMessage by binListViewModel.errorMessage.collectAsState() // 에러 메시지
     val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState() // 선택된 구
+
+    //좋아요 수거함 값
+    val favoriteBins by binListViewModel.favoriteBins.collectAsState(initial = emptyList())
+    val favoriteIds = favoriteBins.map { it.id }.toSet()
 
     //페이지 관련
     val currentPage by binListViewModel.currentPage.collectAsState() // 현재 페이지 번호
@@ -94,40 +101,16 @@ fun NaverMapScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // AndroidView로 MapView를 Compose UI에 포함
-        AndroidView(
-            factory = { mapView }, // MapView를 생성
-            modifier = Modifier.fillMaxSize()
-        ) { mapView ->
-            // MapView가 준비되었을 때 호출되는 콜백
-            mapView.getMapAsync { naverMap ->
-                if (naverMapState == null) {
-                    mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
-                    setupNaverMap(naverMap) // NaverMap 설정
+        NaverMapContainer(mapView, mapViewModel, isMapInteracting)
 
-                    // 카메라 변경 이벤트
-                    naverMap.addOnCameraChangeListener { reason, _ ->
-                        //사용자의 버튼 선택으로 인해 카메라가 움직였음
-                        if (reason == CameraUpdate.REASON_GESTURE){
-                            isMapInteracting = true
-                        }
-                    }
-
-                    // 카메라 대기 이벤트
-                    naverMap.addOnCameraIdleListener {
-                        isMapInteracting = false
-                    }
-                }
-            }
-        }
-
-        // 구 선택 드롭다운 메뉴
         // 지도 드래그 상태에 따라 UI 표시 제어
         AnimatedVisibility(
-            visible = !isMapInteracting,
+            visible = !isMapInteracting.value,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter)
         ){
+            // 구 선택 드롭다운 메뉴
             DistrictDropdownMenu(
                 districtList = supportDistricts.value.map { it.displayNameRes },
                 selectedDistrict = selectedDistrict?.displayNameRes,
@@ -156,7 +139,7 @@ fun NaverMapScreen(
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton = clothingBins.isNotEmpty() && (currentPage != totalPage && !isMapInteracting)
+        val shouldShowMoreButton = clothingBins.isNotEmpty() && (currentPage != totalPage && isMapInteracting.value)
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -209,12 +192,16 @@ fun NaverMapScreen(
         //클러스터
         naverMapState?.let { naverMap ->
             if (clothingBins.isNotEmpty()) {
+                // `clothingBins`를 기반으로 `ItemData` 생성
+                val itemDataList = createItemDataList(clothingBins, favoriteIds)
+
                 //클러스터 설정
                 addCluster(
                     clusterer.value,
                     keyTagMap.value,
                     naverMap,
-                    clothingBins
+                    itemDataList,
+                    onMarkerClick = { binId -> binListViewModel.toggleFavorite(binId) } // 콜백 전달
                 ) { newclusterer, keyTagMap ->
                     mapViewModel.setClusterer(newclusterer)
                     mapViewModel.setKeyTagMap(keyTagMap)
@@ -225,17 +212,51 @@ fun NaverMapScreen(
 
     // NaverMap이 준비되었을 때 권한 요청 처리
     naverMapState?.let { naverMap ->
-        HandlePermissions(naverMap, locationSource) // NaverMap을 전달
+        HandlePermissions(context, naverMap, locationSource) // NaverMap을 전달
     }
 }
+
+//네이버 지도 View
+@Composable
+fun NaverMapContainer(
+    mapView: MapView,
+    mapViewModel: MapViewModel,
+    isMapInteracting: MutableState<Boolean>
+) {
+    AndroidView(
+        factory = { mapView }, // MapView를 생성
+        modifier = Modifier.fillMaxSize()
+    ) { mapView ->
+        // MapView가 준비되었을 때 호출되는 콜백
+        mapView.getMapAsync { naverMap ->
+            if (mapViewModel.naverMapState.value == null) {
+                mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
+                setupNaverMap(naverMap) // NaverMap 설정
+
+                // 카메라 이벤트 설정
+                naverMap.addOnCameraChangeListener { reason, _ ->
+                    //사용자의 버튼 선택으로 인해 카메라가 움직였음
+                    if (reason == CameraUpdate.REASON_GESTURE) {
+                        isMapInteracting.value = true
+                    }
+                }
+                // 카메라 대기 이벤트
+                naverMap.addOnCameraIdleListener {
+                    isMapInteracting.value = false
+                }
+            }
+        }
+    }
+}
+
 
 // 권한 요청 및 결과 처리
 @Composable
 fun HandlePermissions(
+    context: Context,
     naverMap: NaverMap,
     locationSource: FusedLocationSource
 ) {
-    val context = LocalContext.current // 현재 Context를 가져옴
 
     // 권한 요청을 처리하는 ActivityResultLauncher
     val launcher = rememberLauncherForActivityResult(
@@ -258,11 +279,7 @@ fun HandlePermissions(
     // Compose의 `LaunchedEffect`로 권한 요청 트리거
     LaunchedEffect(Unit) {
         //이미 권한이 있는 경우
-        if (ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             setupNaverMapWithLocationTracking(naverMap, locationSource)
         } else { //권한이 없다면 권한 요청
             launcher.launch(
@@ -351,17 +368,6 @@ fun DistrictDropdownMenu(
             }
         }
     }
-}
-
-/**
- * 에러 메시지를 표시하는 컴포저블
- *
- * @param context Context
- * @param resourceId 에러 메시지를 표시할 리소스 ID
- */
-@Composable
-fun ErrorMessage(context: Context, resourceId: Int) {
-    Toast.makeText(context, stringResource(id = resourceId), Toast.LENGTH_SHORT).show()
 }
 
 private const val LOCATION_PERMISSION_REQUEST_CODE = 1000

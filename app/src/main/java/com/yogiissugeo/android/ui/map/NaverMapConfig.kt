@@ -8,11 +8,14 @@ import com.naver.maps.map.CameraAnimation
 import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.clustering.ClusterMarkerInfo
 import com.naver.maps.map.clustering.Clusterer
 import com.naver.maps.map.clustering.DefaultClusterMarkerUpdater
 import com.naver.maps.map.clustering.DefaultClusterOnClickListener
+import com.naver.maps.map.clustering.LeafMarkerInfo
 import com.naver.maps.map.overlay.Align
 import com.naver.maps.map.overlay.Marker
+import com.naver.maps.map.overlay.Overlay
 import com.naver.maps.map.util.FusedLocationSource
 import com.naver.maps.map.util.MarkerIcons
 import com.yogiissugeo.android.data.model.ClothingBin
@@ -50,40 +53,25 @@ fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: Naver
     )
 }
 
-//클러스터 생성
-private fun createClusterer(
-): Clusterer<ItemKey> {
-    return Clusterer.Builder<ItemKey>()
-        .clusterMarkerUpdater { info, marker -> // 클러스터 마커 업데이트 로직
-            val size = info.size
-            marker.icon = when {
-                info.minZoom <= 10 -> MarkerIcons.CLUSTER_HIGH_DENSITY
-                size < 10 -> MarkerIcons.CLUSTER_LOW_DENSITY
-                else -> MarkerIcons.CLUSTER_MEDIUM_DENSITY
-            }
-            marker.subCaptionText = if (info.minZoom == 10) {
-                ((info.tag as? ItemData)?.district) ?: ""// 행정 구역명 표시
-            } else {
-                ""
-            }
-            marker.anchor = DefaultClusterMarkerUpdater.DEFAULT_CLUSTER_ANCHOR
-            marker.captionText = size.toString()
-            marker.setCaptionAligns(Align.Center)
-            marker.captionColor = Color.WHITE
-            marker.captionHaloColor = Color.TRANSPARENT
-            marker.onClickListener = DefaultClusterOnClickListener(info)
+//아이템 리스트 생성
+fun createItemDataList(
+    clothingBins: List<ClothingBin>,
+    favoriteIds: Set<String>
+): List<ItemData> {
+    return clothingBins.mapNotNull { bin ->
+        try {
+            ItemData(
+                id = bin.id,
+                name = bin.address.orEmpty(),
+                district = bin.district.orEmpty(),
+                latitude = bin.latitude?.toDouble() ?: 0.0,
+                longitude = bin.longitude?.toDouble() ?: 0.0,
+                isFavorite = favoriteIds.contains(bin.id)
+            )
+        } catch (e: Exception) {
+            null // 예외 발생 시 null 반환하여 해당 요소 건너뜀
         }
-        .leafMarkerUpdater { info, marker -> // 개별 마커 업데이트 로직
-            marker.icon = Marker.DEFAULT_ICON
-            marker.anchor = Marker.DEFAULT_ANCHOR
-            marker.captionText = (info.tag as ItemData).name
-            marker.setCaptionAligns(Align.Bottom)
-            marker.captionColor = Color.BLACK
-            marker.captionHaloColor = Color.WHITE
-            marker.subCaptionText = ""
-            marker.onClickListener = null
-        }
-        .build()
+    }
 }
 
 //클러스터 추가
@@ -91,35 +79,93 @@ fun addCluster(
     currentClusterer: Clusterer<ItemKey>?,
     currentTagMap: Map<ItemKey, ItemData>?,
     naverMap: NaverMap,
-    clothingBins: List<ClothingBin>,
+    itemDataList: List<ItemData>,
+    onMarkerClick: (String) -> Unit,
     onAddClusterer: (Clusterer<ItemKey>, Map<ItemKey, ItemData>) -> Unit
 ) {
     //기존 클러스터 초기화
     currentClusterer?.clear()
 
-    // 의류 수거함 데이터를 기반으로 키와 태그 맵 생성
-    val newKeyTagMap = buildMap {
-        clothingBins.fastForEach { bin ->
-            val keyData = try {
-                val lat = bin.latitude?.toDouble() ?: 0.0
-                val lng = bin.longitude?.toDouble() ?: 0.0
-                val key = ItemKey(bin.id.hashCode(), LatLng(lat, lng))
-                val data = ItemData(bin.address.orEmpty(), bin.district.orEmpty())
-                key to data
-            } catch (e: NumberFormatException) {
-                null // 예외 발생 시 null 반환
-            }
-            keyData?.let { (key, data) -> put(key, data) }
-        }
+    // 키와 태그 맵 생성
+    val newKeyTagMap = itemDataList.associateBy { data ->
+        val key = ItemKey(data.id.hashCode(), LatLng(data.latitude, data.longitude))
+        key
     } + (currentTagMap ?: emptyMap())
 
     // 클러스터 생성
-    val newClusterer = createClusterer()
+    val newClusterer = createClusterer(onMarkerClick)
 
     // 생성된 클러스터에 데이터 추가
     newClusterer.addAll(newKeyTagMap)
     newClusterer.map = naverMap
-    onAddClusterer.invoke(newClusterer, newKeyTagMap)
+
+    // 새로운 클러스터 설정
+    onAddClusterer(newClusterer, newKeyTagMap)
+}
+
+//클러스터 생성
+private fun createClusterer(
+    onMarkerClick: (String) -> Unit
+): Clusterer<ItemKey> {
+    return Clusterer.Builder<ItemKey>()
+        .clusterMarkerUpdater { info, marker -> // 클러스터 마커 업데이트 로직
+            updateClusterMarker(info, marker)
+        }
+        .leafMarkerUpdater { info, marker -> // 개별 마커 업데이트 로직
+            updateLeafMarker(info, marker, onMarkerClick)
+        }
+        .build()
+}
+
+// 클러스터 마커 업데이트 로직
+private fun updateClusterMarker(info: ClusterMarkerInfo, marker: Marker) {
+    val size = info.size
+    marker.icon = when {
+        info.minZoom <= 10 -> MarkerIcons.CLUSTER_HIGH_DENSITY
+        size < 10 -> MarkerIcons.CLUSTER_LOW_DENSITY
+        else -> MarkerIcons.CLUSTER_MEDIUM_DENSITY
+    }
+    marker.subCaptionText = if (info.minZoom == 10) {
+        (info.tag as? ItemData)?.district.orEmpty()
+    } else {
+        ""
+    }
+    marker.anchor = DefaultClusterMarkerUpdater.DEFAULT_CLUSTER_ANCHOR
+    marker.captionText = size.toString()
+    marker.setCaptionAligns(Align.Center)
+    marker.captionColor = Color.WHITE
+    marker.captionHaloColor = Color.TRANSPARENT
+    marker.onClickListener = DefaultClusterOnClickListener(info)
+}
+
+// 개별 마커 업데이트 로직
+private fun updateLeafMarker(
+    info: LeafMarkerInfo,
+    marker: Marker,
+    onMarkerClick: (String) -> Unit
+) {
+    val itemData = info.tag as? ItemData
+    marker.icon = if (itemData?.isFavorite == true) {
+        MarkerIcons.PINK
+    } else {
+        Marker.DEFAULT_ICON
+    }
+    marker.anchor = Marker.DEFAULT_ANCHOR
+    marker.captionText = itemData?.name.orEmpty()
+    marker.setCaptionAligns(Align.Bottom)
+    marker.captionColor = Color.BLACK
+    marker.captionHaloColor = Color.WHITE
+    marker.subCaptionText = ""
+    marker.onClickListener = Overlay.OnClickListener {
+        itemData?.id?.let(onMarkerClick)
+        itemData?.isFavorite = !(itemData?.isFavorite ?: false)
+        marker.icon = if (itemData?.isFavorite == true) {
+            MarkerIcons.PINK
+        } else {
+            Marker.DEFAULT_ICON
+        }
+        true
+    }
 }
 
 // NaverMap 설정 및 위치 추적 모드 설정
@@ -128,9 +174,7 @@ fun setupNaverMapWithLocationTracking(
     locationSource: FusedLocationSource
 ) {
     // 지도 초기 설정 (옵션)
+    naverMap.uiSettings.isLogoClickEnabled = false
     naverMap.uiSettings.isLocationButtonEnabled = true // 위치 버튼 활성화
     naverMap.locationSource = locationSource // 위치 소스 설정
-
-    //TODO 설정페이지에 네이버 지도 라이선스 연결해야함
-    naverMap.uiSettings.isLogoClickEnabled = false
 }

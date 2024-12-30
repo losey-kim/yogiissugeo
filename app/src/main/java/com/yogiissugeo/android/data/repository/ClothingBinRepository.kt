@@ -6,13 +6,16 @@ import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.data.api.ClothingBinApiHandler
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
+import com.yogiissugeo.android.data.local.dao.FavoriteDao
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
-import com.yogiissugeo.android.data.model.DistrictDataCount
+import com.yogiissugeo.android.data.local.model.DistrictDataCount
+import com.yogiissugeo.android.data.local.model.Favorite
 import com.yogiissugeo.android.utils.common.AddressCorrector
 import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
+import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -26,6 +29,7 @@ import javax.inject.Inject
  * @property geocodingApi 주소를 좌표로 변환하는 Geocoding API 호출을 처리하는 객체
  * @property clothingBinDao 의류 수거함 데이터를 저장하고 불러오는 DAO 객체
  * @property districtDataCountDao 특정 구의 데이터 카운트를 관리하는 DAO 객체
+ * @property favoriteDao '좋아요'한 수거함 정보를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
     private val remoteConfigManager: RemoteConfigManager,
@@ -33,8 +37,8 @@ class ClothingBinRepository @Inject constructor(
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
     private val districtDataCountDao: DistrictDataCountDao,
+    private val favoriteDao: FavoriteDao
 ) {
-
     /**
      * 특정 구의 데이터를 가져옴 (페이징 처리)
      *
@@ -75,6 +79,24 @@ class ClothingBinRepository @Inject constructor(
     //전체 페이지 수를 가져옴
     suspend fun getTotalCount(apiSource: ApiSource,): Int {
         return districtDataCountDao.getTotalCount(apiSource.name)?: 0
+    }
+
+   //즐겨찾기된 수거함 데이터를 Flow로 가져옴.
+    val favoriteBins: Flow<List<ClothingBin>> = clothingBinDao.getFavoriteBins()
+
+    //즐겨찾기 추가.
+    suspend fun addFavorite(binId: String) {
+        favoriteDao.insertFavorite(Favorite(binId))
+    }
+
+    //즐겨찾기 삭제.
+    suspend fun removeFavorite(binId: String) {
+        favoriteDao.deleteFavorite(Favorite(binId))
+    }
+
+    //특정 수거함이 즐겨찾기 상태인지 확인
+    suspend fun isFavorite(binId: String): Boolean {
+        return favoriteDao.isFavorite(binId)
     }
 
     /**
@@ -243,53 +265,5 @@ class ClothingBinRepository @Inject constructor(
         }
 
         return bins
-    }
-
-    //마포구 데이터 파싱
-    private fun parseMapoRow(row: Array<String>): ClothingBin? {
-        return if (row[2].isNotEmpty() && row[3].isNotEmpty()) {
-            ClothingBin(
-                id = row[0],
-                address = row[1],
-                latitude = row[2],
-                longitude = row[3]
-            )
-        } else null
-    }
-
-    //은평구 데이터 파싱
-    private fun parseEunpyeongRow(index: Int, row: Array<String>): ClothingBin? {
-        return if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
-            ClothingBin(
-                id = index.toString(),
-                address = row[2],
-                latitude = row[4],
-                longitude = row[3]
-            )
-        } else null
-    }
-
-    //중구 데이터 파싱
-    private fun parseJungguRow(row: Array<String>): ClothingBin? {
-        return if (row[6].isNotEmpty() && row[7].isNotEmpty()) {
-            ClothingBin(
-                id = row[0],
-                address = row[4],
-                latitude = row[6],
-                longitude = row[7]
-            )
-        } else null
-    }
-
-    //노원구 데이터 파싱
-    private fun parseNoWonRow(row: Array<String>): ClothingBin? {
-        return if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
-            ClothingBin(
-                id = row[0],
-                address = row[2],
-                latitude = row[3],
-                longitude = row[4]
-            )
-        } else null
     }
 }

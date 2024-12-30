@@ -5,11 +5,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.yogiissugeo.android.ui.list.ClothingBinScreen
+import com.yogiissugeo.android.ui.list.FavoriteScreen
 import com.yogiissugeo.android.ui.map.NaverMapScreen
 import com.yogiissugeo.android.ui.setting.SettingScreen
-import com.yogiissugeo.android.ui.splash.SplashScreen
-import com.yogiissugeo.android.utils.config.RemoteConfigManager
 
 /**
  * 앱 내 내비게이션을 관리하는 컴포저블 함수
@@ -26,7 +24,7 @@ fun AppNavHost(navController: NavHostController, modifier: Modifier = Modifier, 
         //지도화면
         composable(NavigationItem.Map.route) { NaverMapScreen() }
         //저장된 항목 화면
-        composable(NavigationItem.Saved.route) { ClothingBinScreen() }
+        composable(NavigationItem.Saved.route) { FavoriteScreen() }
         //설정화면
         composable(NavigationItem.Setting.route) { SettingScreen() }
     }

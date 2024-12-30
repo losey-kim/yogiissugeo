@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.yogiissugeo.android.data.model.DistrictDataCount
+import com.yogiissugeo.android.data.local.model.DistrictDataCount
 
 @Dao
 interface DistrictDataCountDao {
