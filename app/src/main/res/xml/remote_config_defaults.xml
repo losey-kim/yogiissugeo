@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- START xml_defaults -->
+<?xml version="1.0" encoding="utf-8"?><!-- START xml_defaults -->
 <defaultsMap>
     <entry>
         <key>supported_districts</key>
@@ -12,8 +11,10 @@
             "GWANGJIN",
             "GURO",
             "GEUMCHEON",
+            "NOWON",
             "DONGDAEMUN",
             "DONGJAK",
+            "MAPO",
             "SEODAEMUN",
             "SEOCHO",
             "SEONGDONG",
@@ -21,9 +22,37 @@
             "SONGPA",
             "YANGCHEON",
             "YEONGDEUNGPO",
+            "EUNPYEONG",
             "JONGNO",
+            "JUNGGU",
             "JUNGNANG"
-            ]</value>
+            ]
+        </value>
     </entry>
-</defaultsMap>
-    <!-- END xml_defaults -->
+    <entry>
+        <key>recycling_info</key>
+        <value>[
+            {
+            "district" : "강남구",
+            "department": "자원순환과",
+            "url": "https://www.gangnam.go.kr/board/waste/list.do?mid=ID02_011109"
+            },
+            {
+            "district" : "강동구",
+            "department": "청소행정과 청소행정팀",
+            "url": "https://www.gangdong.go.kr/web/newportal/bbs/b_135/list"
+            },
+            {
+            "district" : "강북구",
+            "department": "청소행정과",
+            "url": "https://www.gangbuk.go.kr:18000/portal/bbs/B0000089/list.do?menuNo=200294&amp;nttId=85379"
+            },
+            {
+            "district" : "강서구",
+            "department": "자원순환과",
+            "url": "https://www.gangseo.seoul.kr/env/env010101"
+            }
+            ]
+        </value>
+    </entry>
+</defaultsMap><!-- END xml_defaults -->

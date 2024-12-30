@@ -54,6 +54,13 @@
     <string name="bookmarks_remove">저장 삭제</string>
     <!-- SavedScreen -->
 
+    <!-- SettingScreen -->
+    <string name="setting_menu_recycling_info">지역별 재활용 정보</string>
+    <string name="setting_menu_naver_legal_notice">Naver Map Android SDK 법적 공지 / 정보 제공처</string>
+    <string name="setting_menu_naver_open_source_license">Naver Map Android SDK 오픈소스 라이선스</string>
+    <string name="setting_close">닫기</string>
+    <!-- SettingScreen -->
+
     <!-- Navigation -->
     <string name="nav_map">지도</string>
     <string name="nav_saved">저장</string>
