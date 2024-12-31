@@ -1,11 +1,11 @@
 package com.yogiissugeo.android.data.local.dao
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.yogiissugeo.android.data.model.ClothingBin
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ClothingBinDao {
@@ -30,15 +30,24 @@ interface ClothingBinDao {
     suspend fun getStoredCountForDistrict(district: String): Int
 
     /**
-     * 즐겨찾기된 수거함 데이터를 조회.
+     * 저장된 수거함 데이터를 조회.
      *
-     * - `favorites_table`에 저장된 `binId`를 기준으로
-     *   `clothing_bin_table`에서 해당하는 수거함 데이터를 반환.
+     * - `bookmark_table`과 조인하여 `clothing_bin_table` 데이터를 반환.
+     * - `createdAt` 기준 내림차순 정렬.
      *
-     * @return Flow<List<ClothingBin>> - 즐겨찾기된 수거함 리스트.
+     * @return List<ClothingBin> - 저장된 수거함 리스트.
      */
-    @Query("SELECT * FROM clothing_bin_table WHERE id IN (SELECT binId FROM favorites_table)")
-    fun getFavoriteBins(): Flow<List<ClothingBin>>
+    @Query("SELECT * FROM clothing_bin_table JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId ORDER BY bookmark_table.createdAt DESC")
+    fun getBookmarkBins(): PagingSource<Int, ClothingBin>
+
+    /**
+     * 수거함 저장정보를 업데이트
+     *
+     * @param binId 수거함 ID
+     * @param isBookmarked 저장 상태 (true: 추가, false: 해제)
+     */
+    @Query("UPDATE clothing_bin_table SET isBookmarked = :isBookmarked WHERE id = :binId")
+    suspend fun updateBookmarkStatus(binId: String, isBookmarked: Boolean)
 
     /**
      * 의류 수거함 데이터를 데이터베이스에 삽입합니다.

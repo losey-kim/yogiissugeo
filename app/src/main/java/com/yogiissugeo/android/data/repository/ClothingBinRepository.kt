@@ -1,21 +1,22 @@
 package com.yogiissugeo.android.data.repository
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
 import com.opencsv.CSVReader
 import com.yogiissugeo.android.data.api.GeocodingApi
 import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.data.api.ClothingBinApiHandler
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
-import com.yogiissugeo.android.data.local.dao.FavoriteDao
+import com.yogiissugeo.android.data.local.dao.BookmarkDao
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.local.model.DistrictDataCount
-import com.yogiissugeo.android.data.local.model.Favorite
+import com.yogiissugeo.android.data.local.model.Bookmark
 import com.yogiissugeo.android.utils.common.AddressCorrector
 import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
-import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -29,7 +30,7 @@ import javax.inject.Inject
  * @property geocodingApi 주소를 좌표로 변환하는 Geocoding API 호출을 처리하는 객체
  * @property clothingBinDao 의류 수거함 데이터를 저장하고 불러오는 DAO 객체
  * @property districtDataCountDao 특정 구의 데이터 카운트를 관리하는 DAO 객체
- * @property favoriteDao '좋아요'한 수거함 정보를 관리하는 DAO 객체
+ * @property bookmarkDao 저장한 수거함 정보를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
     private val remoteConfigManager: RemoteConfigManager,
@@ -37,7 +38,7 @@ class ClothingBinRepository @Inject constructor(
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
     private val districtDataCountDao: DistrictDataCountDao,
-    private val favoriteDao: FavoriteDao
+    private val bookmarkDao: BookmarkDao
 ) {
     /**
      * 특정 구의 데이터를 가져옴 (페이징 처리)
@@ -81,22 +82,44 @@ class ClothingBinRepository @Inject constructor(
         return districtDataCountDao.getTotalCount(apiSource.name)?: 0
     }
 
-   //즐겨찾기된 수거함 데이터를 Flow로 가져옴.
-    val favoriteBins: Flow<List<ClothingBin>> = clothingBinDao.getFavoriteBins()
+    /**
+     * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옴.
+     * 한 페이지당 20개의 아이템을 로드
+     * Flow 형태로 데이터를 제공.
+     */
+    fun getBookmarkBinsPaged() = Pager(
+        config = PagingConfig(
+            pageSize = 20, // 한 페이지당 아이템 수
+            enablePlaceholders = false
+        ),
+        pagingSourceFactory = { clothingBinDao.getBookmarkBins() }
+    ).flow
 
-    //즐겨찾기 추가.
-    suspend fun addFavorite(binId: String) {
-        favoriteDao.insertFavorite(Favorite(binId))
+    /**
+     * 저장 상태를 추가.
+     * 수거함 ID와 현재 시간을 저장소에 추가.
+     */
+    suspend fun addBookmark(binId: String) {
+        val bookmark = Bookmark(binId = binId, createdAt = System.currentTimeMillis()) // 현재 시간 추가
+        bookmarkDao.insertBookmark(bookmark)
+        clothingBinDao.updateBookmarkStatus(binId, true)
     }
 
-    //즐겨찾기 삭제.
-    suspend fun removeFavorite(binId: String) {
-        favoriteDao.deleteFavorite(Favorite(binId))
+    /**
+     * 저장 상태를 제거.
+     * 수거함 ID를 기반으로 저장소에서 삭제.
+     */
+    suspend fun removeBookmark(binId: String) {
+        bookmarkDao.deleteBookmark(Bookmark(binId, 0))
+        clothingBinDao.updateBookmarkStatus(binId, false)
     }
 
-    //특정 수거함이 즐겨찾기 상태인지 확인
-    suspend fun isFavorite(binId: String): Boolean {
-        return favoriteDao.isFavorite(binId)
+    /**
+     * 특정 수거함이 저장상태인지 확인.
+     * 저장 여부를 Boolean 값으로 반환.
+     */
+    suspend fun isBookmark(binId: String): Boolean {
+        return bookmarkDao.isBookmark(binId)
     }
 
     /**

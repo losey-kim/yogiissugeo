@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
-import com.yogiissugeo.android.data.local.dao.FavoriteDao
+import com.yogiissugeo.android.data.local.dao.BookmarkDao
 import com.yogiissugeo.android.data.local.database.AppDatabase
 import com.yogiissugeo.android.data.local.database.MIGRATION_1_2
+import com.yogiissugeo.android.data.local.database.MIGRATION_2_3
+import com.yogiissugeo.android.data.local.database.MIGRATION_3_4
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,7 +37,7 @@ object RoomModule {
             context,
             AppDatabase::class.java,
             "clothing_bin_db"
-        ).addMigrations(MIGRATION_1_2)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
 
@@ -61,8 +63,14 @@ object RoomModule {
         return database.districtDataCountDao()
     }
 
+    /**
+     * 저장된 의류수거함 DAO를 제공
+     *
+     * @param database AppDatabase 인스턴스
+     * @return BookmarkDao 인스턴스
+     */
     @Provides
-    fun provideFavoriteDao(database: AppDatabase): FavoriteDao {
-        return database.favoriteDao()
+    fun provideBookmarkDao(database: AppDatabase): BookmarkDao {
+        return database.bookmarkDao()
     }
 }

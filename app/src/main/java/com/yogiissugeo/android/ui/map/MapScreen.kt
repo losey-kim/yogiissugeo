@@ -37,11 +37,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -79,9 +77,6 @@ fun NaverMapScreen(
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState()
     val currentPage by binListViewModel.currentPage.collectAsState()
     val totalPage by binListViewModel.totalPage.collectAsState()
-    val favoriteBins by binListViewModel.favoriteBins.collectAsState(initial = emptyList())
-    //좋아요 수거함 값
-    val favoriteIds = favoriteBins.map { it.id }.toSet()
 
     // 지도 관련 상태
     val mapView = mapViewModel.mapView
@@ -202,16 +197,13 @@ fun NaverMapScreen(
             //클러스터
             naverMapState?.let { naverMap ->
                 if (clothingBins.isNotEmpty()) {
-                    // `clothingBins`를 기반으로 `ItemData` 생성
-                    val itemDataList = createItemDataList(clothingBins, favoriteIds)
-
                     //클러스터 설정
                     addCluster(
                         clusterer.value,
                         keyTagMap.value,
                         naverMap,
-                        itemDataList,
-                        onMarkerClick = { binId -> binListViewModel.toggleFavorite(binId) } // 콜백 전달
+                        clothingBins,
+                        onMarkerClick = { binId -> binListViewModel.toggleBookmark(binId) } // 콜백 전달
                     ) { newclusterer, keyTagMap ->
                         mapViewModel.setClusterer(newclusterer)
                         mapViewModel.setKeyTagMap(keyTagMap)

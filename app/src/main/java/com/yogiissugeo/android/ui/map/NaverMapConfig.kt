@@ -53,43 +53,28 @@ fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: Naver
     )
 }
 
-//아이템 리스트 생성
-fun createItemDataList(
-    clothingBins: List<ClothingBin>,
-    favoriteIds: Set<String>
-): List<ItemData> {
-    return clothingBins.mapNotNull { bin ->
-        try {
-            ItemData(
-                id = bin.id,
-                name = bin.address.orEmpty(),
-                district = bin.district.orEmpty(),
-                latitude = bin.latitude?.toDouble() ?: 0.0,
-                longitude = bin.longitude?.toDouble() ?: 0.0,
-                isFavorite = favoriteIds.contains(bin.id)
-            )
-        } catch (e: Exception) {
-            null // 예외 발생 시 null 반환하여 해당 요소 건너뜀
-        }
-    }
-}
-
 //클러스터 추가
 fun addCluster(
     currentClusterer: Clusterer<ItemKey>?,
-    currentTagMap: Map<ItemKey, ItemData>?,
+    currentTagMap: Map<ItemKey?, ClothingBin>?,
     naverMap: NaverMap,
-    itemDataList: List<ItemData>,
+    itemDataList: List<ClothingBin>,
     onMarkerClick: (String) -> Unit,
-    onAddClusterer: (Clusterer<ItemKey>, Map<ItemKey, ItemData>) -> Unit
+    onAddClusterer: (Clusterer<ItemKey>, Map<ItemKey?, ClothingBin>) -> Unit
 ) {
     //기존 클러스터 초기화
     currentClusterer?.clear()
 
     // 키와 태그 맵 생성
     val newKeyTagMap = itemDataList.associateBy { data ->
-        val key = ItemKey(data.id.hashCode(), LatLng(data.latitude, data.longitude))
-        key
+        try {
+            val latitude = data.latitude?.toDoubleOrNull() ?: 0.0
+            val longitude = data.longitude?.toDoubleOrNull() ?: 0.0
+            val key = ItemKey(data.id.hashCode(), LatLng(latitude, longitude))
+            key
+        } catch (e: Exception){
+            null // 예외 발생 시 null 반환
+        }
     } + (currentTagMap ?: emptyMap())
 
     // 클러스터 생성
@@ -126,7 +111,7 @@ private fun updateClusterMarker(info: ClusterMarkerInfo, marker: Marker) {
         else -> MarkerIcons.CLUSTER_MEDIUM_DENSITY
     }
     marker.subCaptionText = if (info.minZoom == 10) {
-        (info.tag as? ItemData)?.district.orEmpty()
+        (info.tag as? ClothingBin)?.address.orEmpty()
     } else {
         ""
     }
@@ -144,22 +129,22 @@ private fun updateLeafMarker(
     marker: Marker,
     onMarkerClick: (String) -> Unit
 ) {
-    val itemData = info.tag as? ItemData
-    marker.icon = if (itemData?.isFavorite == true) {
+    val itemData = info.tag as? ClothingBin
+    marker.icon = if (itemData?.isBookmarked == true) {
         MarkerIcons.PINK
     } else {
         Marker.DEFAULT_ICON
     }
     marker.anchor = Marker.DEFAULT_ANCHOR
-    marker.captionText = itemData?.name.orEmpty()
+    marker.captionText = itemData?.address.orEmpty()
     marker.setCaptionAligns(Align.Bottom)
     marker.captionColor = Color.BLACK
     marker.captionHaloColor = Color.WHITE
     marker.subCaptionText = ""
     marker.onClickListener = Overlay.OnClickListener {
         itemData?.id?.let(onMarkerClick)
-        itemData?.isFavorite = !(itemData?.isFavorite ?: false)
-        marker.icon = if (itemData?.isFavorite == true) {
+        itemData?.isBookmarked = !(itemData?.isBookmarked ?: false)
+        marker.icon = if (itemData?.isBookmarked == true) {
             MarkerIcons.PINK
         } else {
             Marker.DEFAULT_ICON

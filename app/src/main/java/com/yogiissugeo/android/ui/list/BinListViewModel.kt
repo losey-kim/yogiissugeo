@@ -2,6 +2,7 @@ package com.yogiissugeo.android.ui.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.cachedIn
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
@@ -26,8 +27,6 @@ import kotlin.math.ceil
 class BinListViewModel @Inject constructor(
     private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레포지토리
 ) : ViewModel() {
-    //좋아요 수거함 리스트
-    val favoriteBins = clothingBinRepository.favoriteBins
 
     /**
      * 로딩 상태를 나타냅니다.
@@ -42,6 +41,12 @@ class BinListViewModel @Inject constructor(
      */
     private val _clothingBins = MutableStateFlow<List<ClothingBin>>(emptyList())
     val clothingBins: StateFlow<List<ClothingBin>> = _clothingBins
+
+    /**
+     * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옵니다.
+     * 저장소에서 가져온 데이터를 Flow로 제공.
+     */
+    val bookmarksBins = clothingBinRepository.getBookmarkBinsPaged().cachedIn(viewModelScope)
 
     /**
      * 에러 메시지를 저장하는 상태.
@@ -100,15 +105,15 @@ class BinListViewModel @Inject constructor(
     }
 
     /**
-     * 좋아요 상태를 toggle합니다.
+     * 저장 상태를 toggle합니다.
      *
      * @param binId toggle할 binId
      */
-    fun toggleFavorite(binId: String) = viewModelScope.launch {
-        if (clothingBinRepository.isFavorite(binId)) {
-            clothingBinRepository.removeFavorite(binId)
+    fun toggleBookmark(binId: String) = viewModelScope.launch {
+        if (clothingBinRepository.isBookmark(binId)) {
+            clothingBinRepository.removeBookmark(binId)
         } else {
-            clothingBinRepository.addFavorite(binId)
+            clothingBinRepository.addBookmark(binId)
         }
     }
 

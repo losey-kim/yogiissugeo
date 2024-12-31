@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.clustering.Clusterer
+import com.yogiissugeo.android.data.model.ClothingBin
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,8 +31,8 @@ class MapViewModel @Inject constructor(
     val clusterer: StateFlow<Clusterer<ItemKey>?> = _clusterer
 
     //keyTagMap
-    private val _keyTagMap = MutableStateFlow<Map<ItemKey, ItemData>?>(null)
-    val keyTagMap: StateFlow<Map<ItemKey, ItemData>?> = _keyTagMap
+    private val _keyTagMap = MutableStateFlow<Map<ItemKey?, ClothingBin>?>(null)
+    val keyTagMap: StateFlow<Map<ItemKey?, ClothingBin>?> = _keyTagMap
 
 
     /**
@@ -59,9 +60,9 @@ class MapViewModel @Inject constructor(
      * ItemKey와 ItemData의 매핑 데이터를 설정
      * null인 경우 초기화
      *
-     * @param newKeyTagMap 새로운 매핑 데이터 (Map<ItemKey, ItemData>)
+     * @param newKeyTagMap 새로운 매핑 데이터 (Map<ItemKey, ClothingBin>)
      */
-    fun setKeyTagMap(newKeyTagMap: Map<ItemKey, ItemData>?) {
+    fun setKeyTagMap(newKeyTagMap: Map<ItemKey?, ClothingBin>?) {
         _keyTagMap.value = newKeyTagMap
     }
 

@@ -103,6 +103,7 @@ dependencies {
     //Room
     implementation(libs.androidx.room.common)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
     kapt(libs.androidx.room.compiler)
 
     //Firebase
@@ -119,6 +120,10 @@ dependencies {
 
     //admob
     implementation(libs.play.services.ads)
+
+    // Paging
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
 
     // Test
     testImplementation(libs.junit)

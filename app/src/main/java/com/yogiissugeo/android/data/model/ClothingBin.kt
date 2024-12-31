@@ -13,5 +13,6 @@ data class ClothingBin(
     val address: String? = null, // 수거함 주소
     val latitude: String? = null, // 위도
     val longitude: String? = null, // 경도
-    val district: String? = null //구 이름
+    val district: String? = null, //구 이름
+    var isBookmarked: Boolean = false //저장 여부
 )
