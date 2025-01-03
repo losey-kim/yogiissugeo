@@ -1,13 +1,16 @@
 package com.yogiissugeo.android.ui.map
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import com.naver.maps.map.MapView
-import com.naver.maps.map.NaverMap
+import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.clustering.Clusterer
+import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
+import com.yogiissugeo.android.utils.cluster.createItemKey
+import com.yogiissugeo.android.utils.cluster.updateBookmarkLeafMarker
+import com.yogiissugeo.android.utils.cluster.updateClusterMarker
+import com.yogiissugeo.android.utils.cluster.updateClusterMarker2
+import com.yogiissugeo.android.utils.cluster.updateDistrictLeafMarker
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -15,63 +18,191 @@ import javax.inject.Inject
 //NaverMap과 관련된 상태를 관리하는 ViewModel
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
-    //MapView 인스턴스
-    private val _mapView: MapView by lazy { MapView(appContext) }
-    val mapView: MapView
-        get() = _mapView
-
-    //NaverMap 상태
-    private val _naverMapState by lazy { MutableStateFlow<NaverMap?>(null) }
-    val naverMapState: StateFlow<NaverMap?> = _naverMapState
-
     //Cluster
-    private val _clusterer = MutableStateFlow<Clusterer<ItemKey>?>(null)
-    val clusterer: StateFlow<Clusterer<ItemKey>?> = _clusterer
+    private val _clustererDistrict = MutableStateFlow<Clusterer<ItemKey>?>(null)
+    val clustererDistrict: StateFlow<Clusterer<ItemKey>?> = _clustererDistrict
 
-    //keyTagMap
-    private val _keyTagMap = MutableStateFlow<Map<ItemKey?, ClothingBin>?>(null)
-    val keyTagMap: StateFlow<Map<ItemKey?, ClothingBin>?> = _keyTagMap
+    //북마크 Cluster
+    private val _clustererBookmarked = MutableStateFlow<Clusterer<ItemKey>?>(null)
+    val clustererBookmarked: StateFlow<Clusterer<ItemKey>?> = _clustererBookmarked
 
+    // Key->ClothingBin
+    private val _keyTagMapAll = MutableStateFlow<MutableMap<ItemKey, ClothingBin>>(mutableMapOf())
+    private val _keyTagMapBookmarked = MutableStateFlow<MutableMap<ItemKey, ClothingBin>>(mutableMapOf())
 
     /**
-     * NaverMap 상태를 설정하는 함수.
-     * 최초 상태가 null인 경우에만 NaverMap 객체를 설정합니다.
-     *
-     * @param naverMap 초기화할 NaverMap 객체.
+     * 처음에 지도 구동 시, 클러스터러가 아직 없으면 생성
+     * (이미 있으면 재생성하지 않음)
      */
-    fun setNaverMapState(naverMap: NaverMap) {
-        if (_naverMapState.value == null) {
-            _naverMapState.value = naverMap
+    fun initClustererIfNeeded(
+        onMarkerClick: (String) -> Unit
+    ) {
+        //구별 클러스터 초기화
+        if (_clustererDistrict.value == null) {
+            val newClusterer = Clusterer.Builder<ItemKey>()
+                // 클러스터 마커(집합 마커) 업데이트 로직
+                .clusterMarkerUpdater { info, marker ->
+                    updateClusterMarker(info, marker)
+                }
+                // 개별 마커(leaf) 업데이트 로직
+                .leafMarkerUpdater { info, marker ->
+                    updateDistrictLeafMarker(info, marker) { binId ->
+                        onMarkerClick(binId) // 마커 클릭 시 즐겨찾기 토글 등
+                    }
+                }
+                .build()
+            _clustererDistrict.value = newClusterer
+        }
+
+        //북마크 클러스터 초기화
+        if (_clustererBookmarked.value == null) {
+            val cBookmarked = Clusterer.Builder<ItemKey>()
+                // 클러스터 마커(집합 마커) 업데이트 로직
+                .clusterMarkerUpdater { info, marker ->
+                    updateClusterMarker2(info, marker)
+                }
+                // 개별 마커(leaf) 업데이트 로직
+                .leafMarkerUpdater { info, marker ->
+                    updateBookmarkLeafMarker(info, marker) { binId ->
+                    }
+                }
+                .build()
+            _clustererBookmarked.value = cBookmarked
         }
     }
 
     /**
-     * 클러스터를 객체 설정
-     *
-     * @param newClusterer 초기화할 clusterer
+     * 의류수거함 전체 목록을 받아서, 클러스터를 갱신 (clear -> addAll) 하는 예시
      */
-    fun setClusterer(newClusterer: Clusterer<ItemKey>) {
-        _clusterer.value = newClusterer
+    fun updateClusterAll(items: List<ClothingBin>) {
+        // 1) 기존 clear
+        _clustererDistrict.value?.clear()
+        _keyTagMapAll.value.clear()
+        // 2) 새 데이터 채우기
+        items.forEach { bin ->
+            val key = createItemKey(bin) ?: return@forEach
+            _keyTagMapAll.value[key] = bin
+        }
+        // 3) 한 번에 addAll
+        _clustererDistrict.value?.addAll(_keyTagMapAll.value)
     }
 
     /**
-     * ItemKey와 ItemData의 매핑 데이터를 설정
-     * null인 경우 초기화
-     *
-     * @param newKeyTagMap 새로운 매핑 데이터 (Map<ItemKey, ClothingBin>)
+     * 아이템 여러 개 추가
      */
-    fun setKeyTagMap(newKeyTagMap: Map<ItemKey?, ClothingBin>?) {
-        _keyTagMap.value = newKeyTagMap
+    fun addDistrictItems(items: List<ClothingBin>) {
+        val newMap = mutableMapOf<ItemKey, ClothingBin>()
+        items.forEach { bin ->
+            val key = createItemKey(bin) ?: return@forEach
+            // 북마크 상태인 아이템이라면 District 클러스터엔 넣지 않는다
+            if (!bin.isBookmarked) {
+                _keyTagMapAll.value[key] = bin
+                newMap[key] = bin
+            }
+        }
+        // 한 번에 추가
+        _clustererDistrict.value?.addAll(newMap)
     }
 
     /**
-     * ViewModel이 클리어될 때 호출되는 함수.
-     * - MapView의 생명주기와 관련된 리소스를 정리하기 위해 onDestroy를 호출
+     * 아이템 하나 추가
      */
-    override fun onCleared() {
-        super.onCleared()
-        _mapView.onDestroy()
+    fun addItem(item: ClothingBin) {
+        val key = createItemKey(item) ?: return
+        _keyTagMapAll.value[key] = item
+        _clustererDistrict.value?.add(key, item)
+    }
+
+    /**
+     * 특정 아이템 제거
+     */
+    fun removeItem(binId: String) {
+        val entry = _keyTagMapAll.value.entries.find { it.value.id == binId } ?: return
+        _keyTagMapAll.value.remove(entry.key)
+        _clustererDistrict.value?.remove(entry.key)
+    }
+
+    /**
+     * 전체 제거
+     */
+    fun clearAll() {
+        _clustererDistrict.value?.clear()
+        _keyTagMapAll.value.clear()
+    }
+
+    /**
+     * 북마크 아이템 업데이트
+     */
+    //TODO 함수 개선 필요
+    fun updateBookmarkedItems(items: List<ClothingBin>, currentDistrict: ApiSource?) {
+        val clustererBm = _clustererBookmarked.value ?: return
+        val clustererDistrict = _clustererDistrict.value
+
+        // 1) 새로 들어온 bookmark 목록 → newSet
+        val newMap = mutableMapOf<ItemKey, ClothingBin>()
+        items.forEach { bin ->
+            val key = createItemKey(bin) ?: return@forEach
+            newMap[key] = bin
+        }
+        val newSet = newMap.keys
+
+        // 2) 현재 클러스터(기존) 내부 map → oldSet
+        // keyTagMapBookmarked는 "현재 bookmark된 아이템"을 담고 있음
+        val oldMap = _keyTagMapBookmarked.value
+        val oldSet = oldMap.keys
+
+        // 3) 추가되어야 하는 키
+        val addedKeys = newSet - oldSet
+
+        // 4) 제거되어야 하는 키
+        val removedKeys = oldSet - newSet
+
+        // 5) "제거" 대상: removedKeys
+        if (removedKeys.isNotEmpty()) {
+            // 북마크 클러스터에서 제거할 맵 만들기
+            val removingMap = removedKeys.associateWith { oldKey ->
+                // oldMap에는 key -> bin이 있으므로, 값 찾을 수 있음
+                oldMap[oldKey]
+            }.filterValues { it != null } // null 제외
+                .mapValues { (_, v) -> v!! }
+
+            // oldMap에서도 제거
+            removedKeys.forEach { oldMap.remove(it) }
+
+            // 북마크 클러스터에서 배치 제거
+            clustererBm.removeAll(removingMap.keys)
+
+            // 현재 선택된 구와 같다면 구별 클러스터에 추가
+            clustererDistrict?.addAll(removingMap.filterValues { bin ->
+                bin.district == currentDistrict?.name
+            })
+        }
+
+        // 6) "추가" 대상: addedKeys
+        if (addedKeys.isNotEmpty()) {
+            // 북마크 클러스터에 추가할 맵 만들기
+            val addingMap = addedKeys.associateWith { newKey ->
+                newMap[newKey]
+            }.filterValues { it != null }
+                .mapValues { (_, v) -> v!! }
+
+            // oldMap에도 반영
+            oldMap.putAll(addingMap)
+
+            // District에서 "추가 키"를 제거, (북마크가 되었다면, district에서 안 보이게)
+            clustererDistrict?.removeAll(addedKeys)
+
+            // 북마크 클러스터에 일괄 추가
+            clustererBm.addAll(addingMap)
+        }
+    }
+
+    // CameraPosition
+    private val _cameraPosition = MutableStateFlow<CameraPosition?>(null)
+    val cameraPosition: StateFlow<CameraPosition?> = _cameraPosition
+
+    fun setCameraPosition(position: CameraPosition) {
+        _cameraPosition.value = position
     }
 }

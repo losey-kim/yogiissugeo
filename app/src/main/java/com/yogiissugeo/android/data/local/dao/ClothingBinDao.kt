@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.yogiissugeo.android.data.model.ClothingBin
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ClothingBinDao {
@@ -39,6 +40,12 @@ interface ClothingBinDao {
      */
     @Query("SELECT * FROM clothing_bin_table JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId ORDER BY bookmark_table.createdAt DESC")
     fun getBookmarkBins(): PagingSource<Int, ClothingBin>
+
+    /**
+     * 저장된 수거함 전체 데이터를 조회.
+     */
+    @Query("SELECT * FROM clothing_bin_table JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId ORDER BY bookmark_table.createdAt DESC")
+    fun getAllBookmarkedBins(): Flow<List<ClothingBin>>
 
     /**
      * 수거함 저장정보를 업데이트

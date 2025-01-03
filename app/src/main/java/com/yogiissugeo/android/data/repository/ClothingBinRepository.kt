@@ -17,6 +17,7 @@ import com.yogiissugeo.android.utils.common.AddressCorrector
 import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
+import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -94,6 +95,14 @@ class ClothingBinRepository @Inject constructor(
         ),
         pagingSourceFactory = { clothingBinDao.getBookmarkBins() }
     ).flow
+
+    /**
+     * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옴.
+     * 저장된 수거함 데이터 전체를 가져옴.
+     */
+    fun getAllBookmarkedBins(): Flow<List<ClothingBin>> {
+        return clothingBinDao.getAllBookmarkedBins()
+    }
 
     /**
      * 저장 상태를 추가.

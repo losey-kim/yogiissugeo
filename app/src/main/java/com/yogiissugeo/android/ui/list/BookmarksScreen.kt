@@ -1,6 +1,7 @@
 package com.yogiissugeo.android.ui.list
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,7 +56,10 @@ fun BookmarksScreen(binListViewModel: BinListViewModel = hiltViewModel()) {
     } else {
         // 데이터가 있을 경우 리스트로 표시
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+            ,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp) // 항목 사이 간격 추가
         ) {
@@ -141,7 +146,7 @@ fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Mo
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_bookmark_border),
+                    painter = painterResource(R.drawable.ic_heart_minus_fill),
                     contentDescription = stringResource(R.string.bookmarks_remove),
                     tint = MaterialTheme.colorScheme.primary
                 )

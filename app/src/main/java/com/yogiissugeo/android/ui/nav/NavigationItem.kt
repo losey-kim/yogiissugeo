@@ -11,7 +11,7 @@ sealed class NavigationItem(
     @DrawableRes val icon: Int, //기본 아이콘
     @DrawableRes val selectedIcon: Int //선택 아이콘
 ) {
-    data object Map : NavigationItem("map", R.string.nav_map, R.drawable.ic_map, R.drawable.ic_map_border)
-    data object Saved : NavigationItem("saved", R.string.nav_saved, R.drawable.ic_bookmark, R.drawable.ic_bookmark_border)
-    data object Setting: NavigationItem("setting", R.string.nav_setting, R.drawable.ic_setting, R.drawable.ic_setting_border)
+    data object Map : NavigationItem("map", R.string.nav_map, R.drawable.ic_map_search, R.drawable.ic_map_search_fill)
+    data object Saved : NavigationItem("saved", R.string.nav_saved, R.drawable.ic_heart, R.drawable.ic_heart_fill)
+    data object Setting: NavigationItem("setting", R.string.nav_setting, R.drawable.ic_setting, R.drawable.ic_setting_fill)
 }

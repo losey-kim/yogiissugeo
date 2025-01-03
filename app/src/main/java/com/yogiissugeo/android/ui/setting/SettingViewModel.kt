@@ -28,9 +28,13 @@ class SettingsViewModel @Inject constructor(
     //Remote Config에서 재활용 정보를 가져와서 [RecyclingInfo] 객체 목록으로 파싱
     private fun parseRecyclingInfo() {
         val json = remoteConfigManager.getRemoteConfigValue(RemoteConfigKeys.RECYCLING_INFO)
-        val response = Gson().fromJson(json, RecyclingInfoResponse::class.java)
-        val recyclingInfoMap = response.recyclingInfo
-        _recyclingInfo.value = recyclingInfoMap
+        try {
+            val response = Gson().fromJson(json, RecyclingInfoResponse::class.java)
+            val recyclingInfoMap = response.recyclingInfo
+            _recyclingInfo.value = recyclingInfoMap
+        } catch (e: Exception) {
+            _recyclingInfo.value = emptyList() // 파싱 실패 시 기본값 설정
+        }
     }
 }
 

@@ -9,6 +9,7 @@ import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.repository.ClothingBinRepository
 import com.yogiissugeo.android.utils.network.ResourceException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +26,7 @@ import kotlin.math.ceil
  */
 @HiltViewModel
 class BinListViewModel @Inject constructor(
-    private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레포지토리
+    private val clothingBinRepository: ClothingBinRepository // 의류 수거함 데이터를 가져오는 레파지토리
 ) : ViewModel() {
 
     /**
@@ -47,6 +48,11 @@ class BinListViewModel @Inject constructor(
      * 저장소에서 가져온 데이터를 Flow로 제공.
      */
     val bookmarksBins = clothingBinRepository.getBookmarkBinsPaged().cachedIn(viewModelScope)
+
+    /**
+     * 저장된 수거함 데이터 전체를 가져옴
+     */
+    val allBookmarkedBins: Flow<List<ClothingBin>> = clothingBinRepository.getAllBookmarkedBins()
 
     /**
      * 에러 메시지를 저장하는 상태.

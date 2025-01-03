@@ -27,8 +27,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +45,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import com.naver.maps.geometry.LatLng
+import com.naver.maps.map.CameraAnimation
+import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
@@ -70,36 +76,71 @@ fun NaverMapScreen(
     val perPage = 100 // 페이지당 항목 수
 
     // 의류수거함 관련 상태
-    val clothingBins = binListViewModel.clothingBins.collectAsState().value
-    val supportDistricts = districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
+    val clothingBins by binListViewModel.clothingBins.collectAsState()
+    val bookmarkedBins by binListViewModel.allBookmarkedBins.collectAsState(emptyList())
+    val supportDistricts by districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
     val isLoading by binListViewModel.isLoading.collectAsState()
     val errorMessage by binListViewModel.errorMessage.collectAsState()
     val selectedDistrict by binListViewModel.selectedApiSource.collectAsState()
     val currentPage by binListViewModel.currentPage.collectAsState()
     val totalPage by binListViewModel.totalPage.collectAsState()
 
-    // 지도 관련 상태
-    val mapView = mapViewModel.mapView
-    val naverMapState by mapViewModel.naverMapState.collectAsState()
-    val clusterer = mapViewModel.clusterer.collectAsState()
-    val keyTagMap = mapViewModel.keyTagMap.collectAsState()
+    // MapView
+    val mapView = remember { MapView(context) }
+    val naverMapHolder = remember { mutableStateOf<NaverMap?>(null) }
+    val cameraPos = mapViewModel.cameraPosition.collectAsState()
 
     // 로컬 상태
     val isMapInteracting = rememberSaveable { mutableStateOf(false) } // 지도 조작 상태
     val previousClothingBins = rememberSaveable { mutableStateOf(clothingBins) }  //의류수거함 값
+    val previousBookmarkBins = rememberSaveable { mutableStateOf(clothingBins) }  //저장된 의류수거함 값
     val previousDistrict = rememberSaveable { mutableStateOf(selectedDistrict) }
 
-    // 위치 권한
-    val locationSource = remember {
-        FusedLocationSource(context as ComponentActivity, LOCATION_PERMISSION_REQUEST_CODE)
-    }
-
     // MapView의 Lifecycle 관리
-    ManageMapViewLifecycle(lifecycle, mapView, naverMapState)
+    ManageMapViewLifecycle(lifecycle, mapView)
 
     Box(modifier = Modifier.fillMaxSize()) {
         // AndroidView로 MapView를 Compose UI에 포함
-        NaverMapContainer(mapView, mapViewModel, isMapInteracting)
+        AndroidView(
+            factory = {
+                mapView.apply {
+                    getMapAsync { naverMap ->
+                        naverMapHolder.value = naverMap
+                        // 지도 기본 설정
+                        setupNaverMap(naverMap, cameraPos.value)
+
+                        // 카메라 이벤트 설정
+                        naverMap.addOnCameraChangeListener { reason, _ ->
+                            //사용자의 버튼 선택으로 인해 카메라가 움직였음
+                            if (reason == CameraUpdate.REASON_GESTURE) {
+                                isMapInteracting.value = true
+                            }
+                        }
+
+                        // 카메라 대기 이벤트
+                        naverMap.addOnCameraIdleListener {
+                            isMapInteracting.value = false
+                            // 카메라 멈출 때 ViewModel에 위치 저장
+                            mapViewModel.setCameraPosition(naverMap.cameraPosition)
+                        }
+
+                        // 클러스터러가 없으면 초기화 (한 번만)
+                        mapViewModel.initClustererIfNeeded { binId ->
+                            // 마커 클릭 시 BinListViewModel에 북마크 토글.
+                            binListViewModel.toggleBookmark(binId)
+                        }
+
+                        //클러스터를 강제로 다시 그리기 위해 map을 null로 설정
+                        mapViewModel.clustererDistrict.value?.map = null
+                        mapViewModel.clustererDistrict.value?.map = naverMap
+
+                        mapViewModel.clustererBookmarked.value?.map = null
+                        mapViewModel.clustererBookmarked.value?.map = naverMap
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
         // 지도 드래그 상태에 따라 UI 표시 제어
         AnimatedVisibility(
@@ -107,15 +148,16 @@ fun NaverMapScreen(
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter)
-        ){
+        ) {
             // 구 선택 드롭다운 메뉴
             DistrictDropdownMenu(
-                districtList = supportDistricts.value.map { it.displayNameRes },
+                districtList = supportDistricts.map { it.displayNameRes },
                 selectedDistrict = selectedDistrict?.displayNameRes,
                 onDistrictSelected = { selectedName ->
                     //구 선택 시 클러스터 초기화
-                    mapViewModel.setKeyTagMap(null)
-                    val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                    mapViewModel.clearAll()
+                    val selectedSource =
+                        ApiSource.entries.first { it.displayNameRes == selectedName }
                     if (selectedSource in ApiSource.CSV_SOURCES) { //노원구, 은평구, 마포구, 중구
                         // CSV 파일을 assets에서 읽어오는 코드
                         selectedSource.csvName?.let { csvName ->
@@ -137,7 +179,8 @@ fun NaverMapScreen(
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
+        val shouldShowMoreButton =
+            clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -145,7 +188,7 @@ fun NaverMapScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 44.dp, start = 16.dp, end = 16.dp)
-        ){
+        ) {
             ElevatedButton(
                 onClick = {
                     // "더보기" 버튼 클릭 시 현재 좌표 전달
@@ -175,13 +218,14 @@ fun NaverMapScreen(
     // selectedDistrict가 변경될 때 호출하여 카메라 포지션 이동
     LaunchedEffect(selectedDistrict) {
         //recomposition으로 재호출 되는 것 방지
-        if (previousDistrict.value != selectedDistrict){
+        if (previousDistrict.value != selectedDistrict) {
             previousDistrict.value = selectedDistrict
+            // 의류수거함이 있으면 첫 번째 위치로 이동
             if (clothingBins.isNotEmpty()) {
-                clothingBins.first().longitude?.let { longitude ->
-                    clothingBins.first().latitude?.let { latitude ->
-                        naverMapState?.let { naverMap ->
-                            animateCameraToPosition(latitude.toDouble(), longitude.toDouble(), naverMap)
+                clothingBins.first().longitude?.toDoubleOrNull()?.let { lon ->
+                    clothingBins.first().latitude?.toDoubleOrNull()?.let { lat ->
+                        naverMapHolder.value?.let { nMap ->
+                            animateCameraToPosition(lat, lon, nMap)
                         }
                     }
                 }
@@ -189,69 +233,37 @@ fun NaverMapScreen(
         }
     }
 
-    // 수거함 데이터 변경에 따른 클러스터 업데이트
+    // 수거함 데이터 바뀌면 따른 클러스터 업데이트
     LaunchedEffect(clothingBins) {
         //recomposition으로 재호출 되는 것 방지
         if (clothingBins != previousClothingBins.value) {
             previousClothingBins.value = clothingBins
-            //클러스터
-            naverMapState?.let { naverMap ->
-                if (clothingBins.isNotEmpty()) {
-                    //클러스터 설정
-                    addCluster(
-                        clusterer.value,
-                        keyTagMap.value,
-                        naverMap,
-                        clothingBins,
-                        onMarkerClick = { binId -> binListViewModel.toggleBookmark(binId) } // 콜백 전달
-                    ) { newclusterer, keyTagMap ->
-                        mapViewModel.setClusterer(newclusterer)
-                        mapViewModel.setKeyTagMap(keyTagMap)
-                    }
-                }
+
+            if (clothingBins.isNotEmpty()) {
+                // 아이템 추가
+                mapViewModel.addDistrictItems(clothingBins)
+            }
+        }
+    }
+
+    // 북마크 데이터 바뀌면 클러스터 업데이트
+    LaunchedEffect(bookmarkedBins) {
+        if (bookmarkedBins != previousBookmarkBins.value){
+            previousBookmarkBins.value = bookmarkedBins
+
+            if (bookmarkedBins.isNotEmpty()){
+                mapViewModel.updateBookmarkedItems(bookmarkedBins, selectedDistrict)
             }
         }
     }
 
     // NaverMap이 준비되었을 때 권한 요청 처리
-    naverMapState?.let { naverMap ->
-        HandlePermissions(context, naverMap, locationSource) // NaverMap을 전달
+    naverMapHolder.value?.let { naverMap ->
+        HandlePermissions(context, naverMap, remember {
+            FusedLocationSource(context as ComponentActivity, LOCATION_PERMISSION_REQUEST_CODE)
+        })
     }
 }
-
-//네이버 지도 View
-@Composable
-fun NaverMapContainer(
-    mapView: MapView,
-    mapViewModel: MapViewModel,
-    isMapInteracting: MutableState<Boolean>
-) {
-    AndroidView(
-        factory = { mapView }, // MapView를 생성
-        modifier = Modifier.fillMaxSize()
-    ) { mapView ->
-        // MapView가 준비되었을 때 호출되는 콜백
-        mapView.getMapAsync { naverMap ->
-            if (mapViewModel.naverMapState.value == null) {
-                mapViewModel.setNaverMapState(naverMap) // NaverMap 상태 업데이트
-                setupNaverMap(naverMap) // NaverMap 설정
-
-                // 카메라 이벤트 설정
-                naverMap.addOnCameraChangeListener { reason, _ ->
-                    //사용자의 버튼 선택으로 인해 카메라가 움직였음
-                    if (reason == CameraUpdate.REASON_GESTURE) {
-                        isMapInteracting.value = true
-                    }
-                }
-                // 카메라 대기 이벤트
-                naverMap.addOnCameraIdleListener {
-                    isMapInteracting.value = false
-                }
-            }
-        }
-    }
-}
-
 
 // 권한 요청 및 결과 처리
 @Composable
@@ -371,4 +383,92 @@ fun DistrictDropdownMenu(
     }
 }
 
+// 지도 초기화 및 설정 함수
+fun setupNaverMap(
+    naverMap: NaverMap,
+    cameraPosition: CameraPosition?
+) {
+    //카메라 위치가 있으면 복원, 없으면 기본 위치
+    cameraPosition?.let {
+        naverMap.cameraPosition = it
+    } ?: run {
+        naverMap.cameraPosition = CameraPosition(
+            NaverMap.DEFAULT_CAMERA_POSITION.target,
+            DEFAULT_ZOOM_LEVEL,
+        )
+    }
+
+    naverMap.uiSettings.apply {
+        isLogoClickEnabled = false //로고 클릭 비활성화
+        isCompassEnabled = true // 나침반 버튼 활성화
+    }
+}
+
+//카메라 이동 함수
+fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: NaverMap) {
+    naverMap.moveCamera(
+        CameraUpdate.toCameraPosition(
+            CameraPosition(
+                LatLng(latitude, longitude),
+                DEFAULT_ZOOM_LEVEL
+            )
+        ).animate(
+            CameraAnimation.Easing, NaverMap.DEFAULT_DEFAULT_CAMERA_ANIMATION_DURATION.toLong()
+        )
+    )
+}
+
+// NaverMap 설정 및 위치 추적 모드 설정
+fun setupNaverMapWithLocationTracking(
+    naverMap: NaverMap,
+    locationSource: FusedLocationSource
+) {
+    naverMap.uiSettings.isLocationButtonEnabled = true // 위치 버튼 활성화
+    naverMap.locationSource = locationSource // 위치 소스 설정
+}
+
+//맵뷰의 생명주기 관리
+@Composable
+fun ManageMapViewLifecycle(
+    lifecycle: Lifecycle,
+    mapView: MapView
+) {
+    DisposableEffect(lifecycle) {
+        val lifecycleObserver = object : DefaultLifecycleObserver {
+            override fun onCreate(owner: LifecycleOwner) {
+                // MapView가 아직 초기화되지 않은 경우에만 onCreate
+                if (mapView.childCount == 0) {
+                    mapView.onCreate(null)
+                }
+            }
+
+            override fun onStart(owner: LifecycleOwner) {
+                mapView.onStart()
+            }
+
+            override fun onResume(owner: LifecycleOwner) {
+                mapView.onResume()
+            }
+
+            override fun onPause(owner: LifecycleOwner) {
+                mapView.onPause()
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                mapView.onStop()
+            }
+
+            override fun onDestroy(owner: LifecycleOwner) {
+                mapView.onDestroy()
+            }
+        }
+
+        lifecycle.addObserver(lifecycleObserver)
+        onDispose {
+            lifecycle.removeObserver(lifecycleObserver)
+        }
+    }
+}
+
+private const val DEFAULT_ZOOM_LEVEL = 10.0
 private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
