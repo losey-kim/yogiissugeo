@@ -5,10 +5,11 @@ import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.clustering.Clusterer
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
+import com.yogiissugeo.android.utils.cluster.ItemKey
 import com.yogiissugeo.android.utils.cluster.createItemKey
+import com.yogiissugeo.android.utils.cluster.updateBookmarkClusterMarker
 import com.yogiissugeo.android.utils.cluster.updateBookmarkLeafMarker
-import com.yogiissugeo.android.utils.cluster.updateClusterMarker
-import com.yogiissugeo.android.utils.cluster.updateClusterMarker2
+import com.yogiissugeo.android.utils.cluster.updateDistrictClusterMarker
 import com.yogiissugeo.android.utils.cluster.updateDistrictLeafMarker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +44,7 @@ class MapViewModel @Inject constructor(
             val newClusterer = Clusterer.Builder<ItemKey>()
                 // 클러스터 마커(집합 마커) 업데이트 로직
                 .clusterMarkerUpdater { info, marker ->
-                    updateClusterMarker(info, marker)
+                    updateDistrictClusterMarker(info, marker)
                 }
                 // 개별 마커(leaf) 업데이트 로직
                 .leafMarkerUpdater { info, marker ->
@@ -60,7 +61,7 @@ class MapViewModel @Inject constructor(
             val cBookmarked = Clusterer.Builder<ItemKey>()
                 // 클러스터 마커(집합 마커) 업데이트 로직
                 .clusterMarkerUpdater { info, marker ->
-                    updateClusterMarker2(info, marker)
+                    updateBookmarkClusterMarker(info, marker)
                 }
                 // 개별 마커(leaf) 업데이트 로직
                 .leafMarkerUpdater { info, marker ->

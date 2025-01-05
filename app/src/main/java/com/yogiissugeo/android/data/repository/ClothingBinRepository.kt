@@ -1,23 +1,26 @@
 package com.yogiissugeo.android.data.repository
 
+import android.content.Context
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import com.opencsv.CSVReader
-import com.yogiissugeo.android.data.api.GeocodingApi
-import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.data.api.ClothingBinApiHandler
+import com.yogiissugeo.android.data.api.GeocodingApi
+import com.yogiissugeo.android.data.local.dao.BookmarkDao
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
-import com.yogiissugeo.android.data.local.dao.BookmarkDao
+import com.yogiissugeo.android.data.local.model.Bookmark
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
-import com.yogiissugeo.android.data.local.model.DistrictDataCount
-import com.yogiissugeo.android.data.local.model.Bookmark
+import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.utils.common.AddressCorrector
 import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import retrofit2.Response
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -39,24 +42,24 @@ class ClothingBinRepository @Inject constructor(
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
     private val districtDataCountDao: DistrictDataCountDao,
-    private val bookmarkDao: BookmarkDao
+    private val bookmarkDao: BookmarkDao,
+    @ApplicationContext private val context: Context
 ) {
     /**
      * 특정 구의 데이터를 가져옴 (페이징 처리)
      *
      * @param apiSource API 소스 정보
-     * @param page 요청한 페이지 번호 (1부터 시작)
-     * @param perPage 페이지당 데이터 개수
+     * @param page 요청한 페이지 번호 (0부터 시작)
+     * @param perPage 페이지당 데이터 개수 (기본값 100)
      * @return 요청된 페이지에 대한 의류 수거함 리스트
      */
-    suspend fun getClothingBins(
+    suspend fun getOrFetchBins(
         apiSource: ApiSource,
         page: Int,
-        perPage: Int
+        perPage: Int = 100
     ): Result<List<ClothingBin>> {
-        // 1. 총 데이터 카운트 확인 (Room에서 가져오기)
-        // 데이터가 없는 경우 API 호출
-        val totalCount = districtDataCountDao.getTotalCount(apiSource.name) ?: return fetchAndStoreBinsFromApi(apiSource, page, perPage)
+        // 1. DB에 이미 데이터가 있는지 확인
+        val totalCount = districtDataCountDao.getTotalCount(apiSource.name) ?: 0
 
         // 2. 페이징 범위 확인
         if (isPageOutOfBounds(page, perPage, totalCount)) {
@@ -66,15 +69,79 @@ class ClothingBinRepository @Inject constructor(
 
         // 3. Room에서 데이터 가져오기
         val offset = (page - 1) * perPage
-        val cachedBins = clothingBinDao.getBinsByDistrict(apiSource.name, perPage, offset)
+        val binsInDb = clothingBinDao.getBinsByDistrict(apiSource.name, perPage, offset)
         val storedCount = clothingBinDao.getStoredCountForDistrict(apiSource.name)
 
         // 4. 캐싱된 데이터가 충분한 경우 바로 반환
-        return if (cachedBins.isNotEmpty() && isDataSufficient(offset, perPage, storedCount)) {
-            Result.success(cachedBins)
+        return if (isDataSufficient(offset, storedCount)) {
+            Result.success(binsInDb)
         } else {
-            // 5. 부족한 경우 API 호출
-            fetchAndStoreBinsFromApi(apiSource, page, perPage)
+            // 5. DB에 없다면, CSV or API 호출
+            if (apiSource.isCsvSource) {
+                loadBinsFromCsv(apiSource, perPage)
+            } else {
+                fetchAndStoreBinsFromApi(apiSource, page, perPage)
+            }
+        }
+    }
+
+    /**
+     * CSV에서 읽고 DB 저장
+     */
+    private suspend fun loadBinsFromCsv(apiSource: ApiSource, perPage: Int): Result<List<ClothingBin>> = withContext(Dispatchers.IO) {
+        try {
+            val csvFileName = apiSource.csvName
+                ?: return@withContext Result.failure(IllegalStateException("CSV 파일을 찾을 수 없음."))
+
+            // 1. CSV 파일 열기
+            context.assets.open(csvFileName).use { inputStream ->
+                // 2. CSV 파싱
+                val bins = parseCsv(inputStream, apiSource)
+
+                // 3. DB 저장
+                saveBinsToDatabase(apiSource.name, bins, bins.size)
+
+                // 4. 처음 저장 후 perPage 크기만큼만 보여줌
+                Result.success(bins.take(perPage))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * API를 호출하여 데이터를 가져오고 Room에 저장
+     *
+     * @param apiSource API 소스 정보
+     * @param page 요청한 페이지 번호
+     * @param perPage 페이지당 데이터 개수
+     * @return API 호출 결과로 가져온 의류 수거함 리스트
+     */
+    private suspend fun fetchAndStoreBinsFromApi(
+        apiSource: ApiSource,
+        page: Int,
+        perPage: Int,
+    ): Result<List<ClothingBin>> {
+        return safeApiCall {
+            // Remote Config에서 API 키 가져오기
+            val apiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.CLOTHING_BIN_API_KEY)
+
+            // API로부터 데이터 가져오기
+            val response = apiHandler.fetchClothingBins(apiSource, page, perPage, apiKey)
+            val body = response.body()
+            val formattedData = body?.formattedData.orEmpty()
+
+            // 1. 위도와 경도가 없는 데이터를 필터링 및 처리
+            val binsWithCoordinates = processMissingCoordinates(formattedData)
+
+            // 2. 기존 데이터와 업데이트된 데이터를 병합
+            val allBins = mergeBins(formattedData, binsWithCoordinates)
+
+            // 3. Room에 데이터 저장 및 총 데이터 카운트 업데이트
+            saveBinsToDatabase(apiSource.name, allBins, body?.totalCount ?: 0)
+
+            // 4. 응답 생성 및 반환
+            Response.success(allBins, response.raw())
         }
     }
 
@@ -132,42 +199,6 @@ class ClothingBinRepository @Inject constructor(
     }
 
     /**
-     * API를 호출하여 데이터를 가져오고 Room에 저장
-     *
-     * @param apiSource API 소스 정보
-     * @param page 요청한 페이지 번호
-     * @param perPage 페이지당 데이터 개수
-     * @return API 호출 결과로 가져온 의류 수거함 리스트
-     */
-    private suspend fun fetchAndStoreBinsFromApi(
-        apiSource: ApiSource,
-        page: Int,
-        perPage: Int,
-    ): Result<List<ClothingBin>> {
-        return safeApiCall {
-            // Remote Config에서 API 키 가져오기
-            val apiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.CLOTHING_BIN_API_KEY)
-
-            // API로부터 데이터 가져오기
-            val response = apiHandler.fetchClothingBins(apiSource, page, perPage, apiKey)
-            val body = response.body()
-            val formattedData = body?.formattedData.orEmpty()
-
-            // 1. 위도와 경도가 없는 데이터를 필터링 및 처리
-            val binsWithCoordinates = processMissingCoordinates(formattedData)
-
-            // 2. 기존 데이터와 업데이트된 데이터를 병합
-            val allBins = mergeBins(formattedData, binsWithCoordinates)
-
-            // 3. Room에 데이터 저장 및 총 데이터 카운트 업데이트
-            saveBinsToDatabase(apiSource.name, allBins, body?.totalCount ?: 0)
-
-            // 4. 응답 생성 및 반환
-            Response.success(allBins, response.raw())
-        }
-    }
-
-    /**
      * 요청한 페이지가 데이터 범위를 초과했는지 확인
      *
      * @param page 요청한 페이지 번호
@@ -183,12 +214,11 @@ class ClothingBinRepository @Inject constructor(
      * 캐싱된 데이터가 요청한 페이지 범위에 충분한지 확인
      *
      * @param offset 데이터 시작 위치
-     * @param perPage 페이지당 데이터 개수
      * @param storedCount 저장된 데이터 개수
      * @return 데이터가 충분할 경우 true
      */
-    private fun isDataSufficient(offset: Int, perPage: Int, storedCount: Int): Boolean {
-        return offset + perPage <= storedCount
+    private fun isDataSufficient(offset: Int, storedCount: Int): Boolean {
+        return offset < storedCount
     }
 
     /**
@@ -236,9 +266,7 @@ class ClothingBinRepository @Inject constructor(
         // 데이터 삽입
         clothingBinDao.insertBins(bins)
         // 총 데이터 카운트 삽입 또는 업데이트
-        districtDataCountDao.insertOrUpdateCount(
-            DistrictDataCount(districtName, totalCount)
-        )
+        districtDataCountDao.insertOrUpdateCount(districtName, totalCount)
     }
 
     /**
@@ -284,7 +312,7 @@ class ClothingBinRepository @Inject constructor(
     }
 
     // CSV 데이터 파싱 함수 추가
-    fun parseCsv(inputStream: InputStream, apiSource: ApiSource): List<ClothingBin> {
+    private fun parseCsv(inputStream: InputStream, apiSource: ApiSource): List<ClothingBin> {
         val reader = CSVReader(InputStreamReader(inputStream))
         val bins = mutableListOf<ClothingBin>()
 

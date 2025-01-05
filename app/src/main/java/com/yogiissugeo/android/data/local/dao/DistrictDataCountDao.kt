@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.yogiissugeo.android.data.local.model.DistrictDataCount
 
 @Dao
@@ -25,4 +26,12 @@ interface DistrictDataCountDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateCount(dataCount: DistrictDataCount)
+
+    /**
+     * districtName과 count만 받아서 entity로 변환하는 함수
+     */
+    @Transaction
+    suspend fun insertOrUpdateCount(districtName: String, totalCount: Int) {
+        insertOrUpdateCount(DistrictDataCount(districtName, totalCount))
+    }
 }

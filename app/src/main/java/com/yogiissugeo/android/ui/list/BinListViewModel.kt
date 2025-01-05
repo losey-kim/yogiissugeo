@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.InputStream
 import javax.inject.Inject
 import kotlin.math.ceil
 
@@ -80,31 +79,33 @@ class BinListViewModel @Inject constructor(
     val selectedApiSource: StateFlow<ApiSource?> = _selectedApiSource.asStateFlow()
 
     /**
-     * 특정 구와 페이지의 의류 수거함 데이터를 서버에서 가져옵니다.
+     * 특정 구와 페이지의 의류 수거함 데이터를 가져옵니다.
      *
      * @param district 요청할 구의 API 소스.
      * @param page 요청할 페이지 번호.
      * @param perPage 한 페이지당 데이터 개수.
      */
-    private fun loadClothingBins(district: ApiSource, page: Int, perPage: Int) {
+    private fun loadDistrictBins(apiSource: ApiSource, page: Int, perPage: Int) {
         viewModelScope.launch {
             _isLoading.value = true // 로딩 시작
             _errorMessage.value = null // 에러 메시지 초기화
 
-            val binsResult = clothingBinRepository.getClothingBins(district, page, perPage)
-            binsResult.onSuccess { bins ->
-                _clothingBins.value = bins
-                // 현재 페이지 번호 증가
-                _currentPage.value += 1
-                //선택한 구가 바뀌었을 때 저장
-                if (_selectedApiSource.value != district) {
-                    _selectedApiSource.value = district
-                    //전체 페이지 수 계산
-                    _totalPage.value = ceil(clothingBinRepository.getTotalCount(district).toDouble() / perPage).toInt()
+            //데이터를 가져옴
+            val result = clothingBinRepository.getOrFetchBins(apiSource, page, perPage)
+            result
+                .onSuccess { bins ->
+                    _clothingBins.value = bins
+                    // 현재 페이지 번호 증가
+                    _currentPage.value += 1
+                    // 구가 바뀌었으면 선택 구 갱신
+                    if (_selectedApiSource.value != apiSource) {
+                        _selectedApiSource.value = apiSource
+                        //전체 페이지 수 계산
+                        _totalPage.value = ceil(clothingBinRepository.getTotalCount(apiSource).toDouble() / perPage).toInt()
+                    }
+                }.onFailure {
+                    handleApiFailure(it) // 에러 처리
                 }
-            }.onFailure {
-                handleApiFailure(it) // 에러 처리
-            }
 
             _isLoading.value = false // 로딩 종료
         }
@@ -143,9 +144,10 @@ class BinListViewModel @Inject constructor(
      * @param apiSource 선택된 구의 API 소스.
      * @param perPage 한 페이지당 데이터 개수.
      */
-    fun onDistrictSelected(apiSource: ApiSource, perPage: Int) {
+    fun onDistrictSelected(apiSource: ApiSource, perPage: Int = 100) {
         _currentPage.value = 0 // 페이지 초기화
-        loadClothingBins(apiSource, _currentPage.value, perPage)
+        val nextPage = _currentPage.value + 1
+        loadDistrictBins(apiSource, nextPage, perPage)
     }
 
     /**
@@ -153,37 +155,9 @@ class BinListViewModel @Inject constructor(
      *
      * @param perPage 한 페이지에 표시할 항목 수
      */
-    fun goToNextPage(perPage: Int) {
+    fun goToNextPage(perPage: Int = 100) {
         val apiSource = _selectedApiSource.value ?: return
         val nextPage = _currentPage.value + 1
-        loadClothingBins(apiSource, nextPage, perPage) // 다음 페이지 데이터 로드
-    }
-
-    /**
-     * 이전 페이지 데이터를 로드하는 함수
-     *
-     * @param perPage 한 페이지에 표시할 항목 수
-     */
-    fun goToPreviousPage(perPage: Int) {
-        val apiSource = _selectedApiSource.value ?: return
-        val prevPage = (_currentPage.value - 1).coerceAtLeast(1) // 현재 페이지 번호 감소
-        _currentPage.value = prevPage
-        loadClothingBins(apiSource, _currentPage.value, perPage) // 이전 페이지 데이터 로드
-    }
-
-    /**
-     * CSV 파일을 로드하여 저장 함수
-     *
-     * @param inputStream 한 페이지에 표시할 항목 수
-     * @param district 선택된 구 정보
-     */
-    fun loadCsv(inputStream: InputStream, district: ApiSource) {
-        viewModelScope.launch {
-            _clothingBins.value = clothingBinRepository.parseCsv(inputStream, district)
-            //선택한 구가 바뀌었을 때 저장
-            if (_selectedApiSource.value != district) {
-                _selectedApiSource.value = district
-            }
-        }
+        loadDistrictBins(apiSource, nextPage, perPage) // 다음 페이지 데이터 로드
     }
 }

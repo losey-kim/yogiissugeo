@@ -119,10 +119,11 @@ enum class ApiSource(
             NOWON to { _, row ->
                 if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
                     ClothingBin(
-                        id = row[0],
+                        id = NOWON.name + row[0],
                         address = row[2],
                         latitude = row[3],
-                        longitude = row[4]
+                        longitude = row[4],
+                        district = NOWON.name
                     )
                 } else null
             },
@@ -130,10 +131,11 @@ enum class ApiSource(
             MAPO to { _, row ->
                 if (row[2].isNotEmpty() && row[3].isNotEmpty()) {
                     ClothingBin(
-                        id = row[0],
+                        id = MAPO.name + row[0],
                         address = row[1],
                         latitude = row[2],
-                        longitude = row[3]
+                        longitude = row[3],
+                        district = MAPO.name
                     )
                 } else null
             },
@@ -141,10 +143,11 @@ enum class ApiSource(
             EUNPYEONG to { index, row ->
                 if (row[3].isNotEmpty() && row[4].isNotEmpty()) {
                     ClothingBin(
-                        id = index.toString(),
+                        id = EUNPYEONG.name + index.toString(),
                         address = row[2],
                         latitude = row[4],
-                        longitude = row[3]
+                        longitude = row[3],
+                        district = EUNPYEONG.name
                     )
                 } else null
             },
@@ -152,10 +155,11 @@ enum class ApiSource(
             JUNGGU to { _, row ->
                 if (row[6].isNotEmpty() && row[7].isNotEmpty()) {
                     ClothingBin(
-                        id = row[0],
+                        id = JUNGGU.name + row[0],
                         address = row[4],
                         latitude = row[6],
-                        longitude = row[7]
+                        longitude = row[7],
+                        district = JUNGGU.name
                     )
                 } else null
             }

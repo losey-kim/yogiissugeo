@@ -61,7 +61,6 @@ import com.yogiissugeo.android.ui.component.ErrorMessage
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
-import com.yogiissugeo.android.utils.common.loadCsvFromAssets
 
 @Composable
 fun NaverMapScreen(
@@ -71,9 +70,6 @@ fun NaverMapScreen(
 ) {
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
-
-    //페이지 관련
-    val perPage = 100 // 페이지당 항목 수
 
     // 의류수거함 관련 상태
     val clothingBins by binListViewModel.clothingBins.collectAsState()
@@ -156,31 +152,16 @@ fun NaverMapScreen(
                 onDistrictSelected = { selectedName ->
                     //구 선택 시 클러스터 초기화
                     mapViewModel.clearAll()
-                    val selectedSource =
-                        ApiSource.entries.first { it.displayNameRes == selectedName }
-                    if (selectedSource in ApiSource.CSV_SOURCES) { //노원구, 은평구, 마포구, 중구
-                        // CSV 파일을 assets에서 읽어오는 코드
-                        selectedSource.csvName?.let { csvName ->
-                            context.loadCsvFromAssets(csvName, { inputStream ->
-                                // 파일을 성공적으로 읽어왔을 경우 ViewModel에 데이터를 저장
-                                binListViewModel.loadCsv(inputStream, selectedSource)
-                            }) {
-                                //파일 로드 실패 시
-                                Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT)
-                                    .show()
-                            }
-                        }
-                    } else { //이외의 구는 API요청
-                        binListViewModel.onDistrictSelected(selectedSource, perPage)
-                    }
+                    val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                    //초기 데이터 로드
+                    binListViewModel.onDistrictSelected(selectedSource)
                 },
                 modifier = Modifier.align(Alignment.TopCenter)
             )
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton =
-            clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
+        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -191,8 +172,8 @@ fun NaverMapScreen(
         ) {
             ElevatedButton(
                 onClick = {
-                    // "더보기" 버튼 클릭 시 현재 좌표 전달
-                    binListViewModel.goToNextPage(perPage)
+                    // "더보기" 버튼 클릭 시 데이터 추가 로드
+                    binListViewModel.goToNextPage()
                 },
                 colors = ButtonDefaults.elevatedButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
