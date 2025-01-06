@@ -5,6 +5,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import com.opencsv.CSVReader
+import com.yogiissugeo.android.BuildConfig
 import com.yogiissugeo.android.data.api.ClothingBinApiHandler
 import com.yogiissugeo.android.data.api.GeocodingApi
 import com.yogiissugeo.android.data.local.dao.BookmarkDao
@@ -141,7 +142,7 @@ class ClothingBinRepository @Inject constructor(
     ): Result<List<ClothingBin>> {
         return safeApiCall {
             // Remote Config에서 API 키 가져오기
-            val apiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.CLOTHING_BIN_API_KEY)
+            val apiKey = BuildConfig.CLOTHING_BIN_API_KEY
 
             // API로부터 데이터 가져오기
             val response = apiHandler.fetchClothingBins(apiSource, page, perPage, apiKey)
@@ -286,8 +287,8 @@ class ClothingBinRepository @Inject constructor(
      */
     private suspend fun getCoordinates(address: String): Result<GeocodingResponse> {
         // Remote Config에서 API 키 가져오기
-        val naverApiKey = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.NAVER_MAP_API_KEY)
-        val naverClientId = remoteConfigManager.getRemoteConfigValueWithFetch(RemoteConfigKeys.NAVER_MAP_CLIENT_ID)
+        val naverApiKey = BuildConfig.NAVER_MAP_API_KEY
+        val naverClientId = BuildConfig.NAVER_MAP_CLIENT_ID
 
         return safeApiCall {
             geocodingApi.getCoordinates(

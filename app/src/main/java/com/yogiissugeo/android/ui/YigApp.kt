@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.yogiissugeo.android.BuildConfig
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.ui.nav.AppNavHost
 import com.yogiissugeo.android.ui.nav.BottomNavigationBar
@@ -79,7 +80,7 @@ fun MainApp(modifier: Modifier = Modifier) {
                 modifier = Modifier.navigationBarsPadding() // 시스템 내비게이션 영역만큼 패딩 추가
             ) {
                 // 하단 배너 광고
-                AdMobBannerView(adUnitId = "ca-app-pub-4848324410383539/5955518384")
+                AdMobBannerView(adUnitId = BuildConfig.ADMOB_BANNER_AD)
 
                 // 하단 네비게이션 바
                 BottomNavigationBar(navController)

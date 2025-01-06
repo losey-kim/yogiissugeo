@@ -1,3 +1,4 @@
+import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
@@ -10,15 +11,22 @@ plugins {
     alias(libs.plugins.firebase.crashlytics)
     alias(libs.plugins.firebase.perf)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.parcelize)
 }
 
-val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(localPropertiesFile.inputStream())
-}
+val localProperties = Properties()
+localProperties.load(FileInputStream(localPropertiesFile))
 
 android {
+    signingConfigs {
+        create("release") {
+            keyAlias = localProperties["keyAlias"] as String
+            keyPassword = localProperties["keyPassword"] as String
+            storeFile = file(localProperties["storeFile"] as String)
+            storePassword = localProperties["storePassword"] as String
+        }
+    }
     namespace = "com.yogiissugeo.android"
     compileSdk = 35
 
@@ -26,10 +34,16 @@ android {
         applicationId = "com.yogiissugeo.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 8
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        //API키 값 로컬에서 가져옴
+        buildConfigField("String", "CLOTHING_BIN_API_KEY", getLocalProperty("CLOTHING_BIN_API_KEY"))
+        buildConfigField("String", "NAVER_MAP_CLIENT_ID", getLocalProperty("NAVER_MAP_CLIENT_ID"))
+        buildConfigField("String", "NAVER_MAP_API_KEY", getLocalProperty("NAVER_MAP_API_KEY"))
+        buildConfigField("String", "ADMOB_BANNER_AD", getLocalProperty("ADMOB_BANNER_AD"))
     }
 
     buildTypes {
@@ -43,6 +57,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.named("release").get()
         }
     }
     compileOptions {

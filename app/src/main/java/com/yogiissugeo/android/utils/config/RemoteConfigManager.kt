@@ -39,10 +39,6 @@ class RemoteConfigManager @Inject constructor(
         //Config값 가져오기
         remoteConfig.fetchAndActivate()
             .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val naverClientId = remoteConfig.getString(RemoteConfigKeys.NAVER_MAP_CLIENT_ID)
-                    initializeNaverMapSdk(naverClientId)
-                }
                 _isInitialized.value = true
                 onComplete.invoke()
             }
@@ -66,14 +62,6 @@ class RemoteConfigManager @Inject constructor(
      */
     fun resetUpdateValue() {
         _isUpdated.value = false
-    }
-
-    /**
-     * Naver 지도 SDK를 초기화하는 메서드
-     * @param clientId Naver Cloud Platform에서 발급받은 클라이언트 ID
-     */
-    private fun initializeNaverMapSdk(clientId: String) {
-        NaverMapSdk.getInstance(context).client = NaverMapSdk.NaverCloudPlatformClient(clientId)
     }
 
     /**
