@@ -53,7 +53,8 @@
     <string name="bookmarks_empty_error">아직 저장된 수거함이 없어요!</string>
     <string name="bookmarks_empty_description">관심 있는 수거함을 저장해보세요.</string>
     <string name="bookmarks_remove">저장 삭제</string>
-    <string name="bookmarks_share">공유</string>
+    <string name="bookmarks_share">주소 공유하기</string>
+    <string name="bookmarks_open_app">앱 열기</string>
     <string name="bookmarks_retry_load">재시도</string>
     <string name="bookmarks_error_message">Error: %s</string>
     <string name="bookmarks_get_count">총 %d개</string>

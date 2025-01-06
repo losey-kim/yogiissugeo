@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -38,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,18 +47,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import coil.compose.AsyncImage
 import com.naver.maps.geometry.LatLng
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
-import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
 import com.yogiissugeo.android.ui.component.DropDownMenuComponent
+import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.nav.NavigationItem
+
 
 //저장된 화면
 @Composable
@@ -65,6 +67,7 @@ fun BookmarksScreen(
     binListViewModel: BinListViewModel = hiltViewModel(),
     districtViewModel: DistrictViewModel = hiltViewModel(),
     sharedViewModel: SharedMapViewModel = hiltViewModel(),
+    savedCardViewModel: SavedCardViewModel = hiltViewModel(),
     navController: NavHostController
 ) {
     // 구 목록 가져오기
@@ -123,14 +126,25 @@ fun BookmarksScreen(
                     bin?.let {
                         SavedCard(
                             bin = it,
-                            onCardClick = {
+                            onCardClick = { latLang ->
                                 // 카드 클릭 시 좌표 저장
-                                sharedViewModel.selectCoordinates(LatLng((it.latitude?.toDouble() ?: 0.0), (it.longitude?.toDouble() ?: 0.0)))
+                                sharedViewModel.selectCoordinates(latLang)
                                 // 지도로 이동
                                 navController.navigate(NavigationItem.Map.route)
                             },
-                            onToggleBookmark = { binId -> binListViewModel.toggleBookmark(binId) },
-                            Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                            onToggleBookmark = { binId ->
+                                //북마크 제거 로직
+                                binListViewModel.toggleBookmark(binId)
+                            },
+                            onOpenApp = { latLang, address ->
+                                //앱 열기 버튼
+                                savedCardViewModel.onNavigate(latLang, address)
+                            },
+                            onShareAddress = { address ->
+                                //공유 버튼
+                                savedCardViewModel.onShareAddress(address)
+                            },
+                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
                         )
                     }
                 }
@@ -172,7 +186,7 @@ fun BookmarksScreen(
  * 총 갯수와 정렬 기준 출력
  */
 @Composable
-fun SetInformation(bookmarkCount: Int){
+fun SetInformation(bookmarkCount: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -200,75 +214,103 @@ fun SetInformation(bookmarkCount: Int){
  * 개별 저장 항목을 표시
  */
 @Composable
-fun SavedCard(bin: ClothingBin, onCardClick: () -> Unit, onToggleBookmark: (String) -> Unit, modifier: Modifier) {
+fun SavedCard(
+    bin: ClothingBin,
+    onCardClick: (LatLng) -> Unit,
+    onToggleBookmark: (String) -> Unit,
+    onShareAddress: (String) -> Unit,
+    onOpenApp: (LatLng, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val latLng = LatLng((bin.latitude?.toDouble() ?: 0.0), (bin.longitude?.toDouble() ?: 0.0))
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .height(100.dp)
             .padding(vertical = 8.dp)
-            .clickable {
-                //TODO 카드 클릭 시 이동 추가
-                onCardClick()
-                true
-            },
+            .clickable(
+                // 카드 클릭 시 지도로 이동
+                onClick = { onCardClick(latLng) }
+            ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.elevatedCardElevation(4.dp),
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // 텍스트 영역
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
             ) {
-                // 구 영역
+                // 구 텍스트
                 Text(
                     text = stringResource(ApiSource.entries.first { it.name == bin.district }.displayNameRes),
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1, // 텍스트 줄 수 제한
-                    overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                // 주소 영역
+                // 주소 텍스트
                 Text(
                     text = bin.address.toString(),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 2, // 텍스트 줄 수 제한
-                    overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // 공유 버튼
-            IconButton(
-                onClick = {
-                    //TODO 이동
-                },
-                modifier = Modifier.padding(start = 8.dp)
+            // 버튼 영역
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_share),
-                    contentDescription = stringResource(R.string.bookmarks_share),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+                // 네이버 지도 이동 버튼
+                IconButton(
+                    onClick = { onOpenApp(latLng, bin.address.toString()) },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    AsyncImage(
+                        model = R.drawable.ic_naver_map, // 네이버 로고 리소스
+                        contentDescription = stringResource(R.string.bookmarks_open_app),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
 
-            // 북마크 버튼
-            IconButton(
-                onClick = { onToggleBookmark(bin.id) },
-                modifier = Modifier.padding(start = 8.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_heart_minus_fill),
-                    contentDescription = stringResource(R.string.bookmarks_remove),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                // 주소 공유 버튼
+                IconButton(
+                    onClick = { onShareAddress(bin.address.toString()) },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_share),
+                        contentDescription = stringResource(R.string.bookmarks_share),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // 북마크 제거 버튼
+                IconButton(
+                    onClick = { onToggleBookmark(bin.id) },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_heart_minus_fill),
+                        contentDescription = stringResource(R.string.bookmarks_remove),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
 }
+
 
 /**
  * 구 선택 필터
@@ -415,14 +457,14 @@ fun ErrorMessage(error: Throwable) {
 
 @Preview(showBackground = true)
 @Composable
-fun showSetInformationPreview(){
+fun showSetInformationPreview() {
     SetInformation(100)
 }
 
 @Preview(showBackground = true)
 @Composable
 fun SavedCardPreview() {
-    SavedCard(ClothingBin(id = "", "라라라라라", district = "마포구"), {}, {}, Modifier)
+    SavedCard(ClothingBin(id = "", "라라라라라", district = "마포구"), {}, {}, {}, { _, _ -> }, Modifier)
 }
 
 @Preview(showBackground = true)
