@@ -325,7 +325,7 @@ fun DistrictDropdownMenu(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        modifier = modifier.padding(top = 32.dp)
+        modifier = modifier.padding(top = 24.dp)
     ) {
         ElevatedButton(
             onClick = {

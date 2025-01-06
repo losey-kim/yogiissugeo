@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NavigationHelper @Inject constructor(
+class ShareUtils @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     /**

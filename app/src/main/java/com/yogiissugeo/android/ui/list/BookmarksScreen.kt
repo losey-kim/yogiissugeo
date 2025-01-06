@@ -1,5 +1,6 @@
 package com.yogiissugeo.android.ui.list
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,26 +20,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,13 +48,13 @@ import com.naver.maps.geometry.LatLng
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
-import com.yogiissugeo.android.ui.component.DropDownButtonComponent
-import com.yogiissugeo.android.ui.component.DropDownMenuComponent
+import com.yogiissugeo.android.ui.component.BookmarkFilterChip
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.nav.NavigationItem
 
 
 //저장된 화면
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookmarksScreen(
     binListViewModel: BinListViewModel = hiltViewModel(),
@@ -82,98 +75,102 @@ fun BookmarksScreen(
     // 현재 필터링된 결과의 갯수 관찰
     val bookmarkCount by binListViewModel.bookmarkCount.collectAsState()
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 구 필터
-        DistrictFilter(
-            districts = districts.map { it.displayNameRes },
-            selectedDistrict = selectedDistrict?.displayNameRes,
-            onDistrictSelected = { district ->
-                //구 선택 시 데이터 로드
-                binListViewModel.setSelectedApiSource(district)
-            }
-        )
+        item {
+            // 구 필터
+            BookmarkFilterChip(
+                districts = districts.map { it.displayNameRes },
+                selectedDistrict = selectedDistrict?.displayNameRes,
+                onDistrictSelected = { district ->
+                    //구 선택 시 데이터 로드
+                    binListViewModel.setSelectedApiSource(district)
+                }
+            )
+        }
 
-        //총 갯수와 정렬기준 출력
-        SetInformation(bookmarkCount)
-
-        //구분선
-        HorizontalDivider(modifier = Modifier.padding(16.dp))
+        //상단 고정
+        stickyHeader {
+            //총 갯수와 정렬기준 출력
+            SetInformation(bookmarkCount)
+        }
 
         // 데이터가 비어 있을 경우
         if (bookmarkBins.itemCount == 0) {
             when (bookmarkBins.loadState.refresh) {
-                is LoadState.Loading -> LoadingIndicator() // 로딩 중
-                is LoadState.NotLoading -> EmptySavedList() // 데이터 없음
-                is LoadState.Error -> ErrorMessage((bookmarkBins.loadState.refresh as LoadState.Error).error) // 에러 발생
+                is LoadState.Loading -> {// 로딩 중
+                    item { LoadingIndicator() }
+                }
+
+                is LoadState.NotLoading -> {// 데이터 없음
+                    item { EmptySavedList() }
+                }
+
+                is LoadState.Error -> { // 에러 발생
+                    item { ErrorMessage((bookmarkBins.loadState.refresh as LoadState.Error).error) }
+                }
             }
         } else {
             // 데이터가 있을 경우 리스트로 표시
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp) // 항목 사이 간격 추가
-            ) {
-                // 저장 항목을 리스트에 추가
-                items(
-                    bookmarkBins.itemCount,
-                    key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
-                    val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
-                    bin?.let {
-                        SavedCard(
-                            bin = it,
-                            onCardClick = { latLang ->
-                                // 카드 클릭 시 좌표 저장
-                                sharedViewModel.selectCoordinates(latLang)
-                                // 지도로 이동
-                                navController.navigate(NavigationItem.Map.route)
-                            },
-                            onToggleBookmark = { binId ->
-                                //북마크 제거 로직
-                                binListViewModel.toggleBookmark(binId)
-                            },
-                            onOpenApp = { latLang, address ->
-                                //앱 열기 버튼
-                                savedCardViewModel.onNavigate(latLang, address)
-                            },
-                            onShareAddress = { address ->
-                                //공유 버튼
-                                savedCardViewModel.onShareAddress(address)
-                            },
-                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                        )
-                    }
+            items(
+                bookmarkBins.itemCount,
+                key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
+                val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
+                bin?.let {
+                    SavedCard(
+                        bin = it,
+                        onCardClick = { latLang ->
+                            // 카드 클릭 시 좌표 저장
+                            sharedViewModel.selectCoordinates(latLang)
+                            // 지도로 이동
+                            navController.navigate(NavigationItem.Map.route)
+                        },
+                        onToggleBookmark = { binId ->
+                            //북마크 제거 로직
+                            binListViewModel.toggleBookmark(binId)
+                        },
+                        onOpenApp = { latLang, address ->
+                            //앱 열기 버튼
+                            savedCardViewModel.onNavigate(latLang, address)
+                        },
+                        onShareAddress = { address ->
+                            //공유 버튼
+                            savedCardViewModel.onShareAddress(address)
+                        },
+                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                    )
                 }
+            }
 
-                // 추가 상태 처리
-                bookmarkBins.apply {
-                    when {
-                        // 로딩 상태
-                        loadState.refresh is LoadState.Loading -> {
-                            item { LoadingIndicator() }
-                        }
-                        // 오류 상태
-                        loadState.refresh is LoadState.Error -> {
-                            val e = loadState.refresh as LoadState.Error
-                            item { ErrorMessage(error = e.error) }
-                        }
-                        // 추가 데이터 로드 중
-                        loadState.append is LoadState.Loading -> {
-                            item { LoadingIndicator() }
-                        }
-                        // 추가 데이터 로드 오류 처리
-                        loadState.append is LoadState.Error -> {
-                            val e = loadState.append as LoadState.Error
-                            item {
-                                RetryButton(
-                                    onClick = { bookmarkBins.retry() },
-                                    errorMessage = e.error.localizedMessage
-                                )
-                            }
+            // 추가 상태 처리
+            bookmarkBins.apply {
+                when {
+                    // 로딩 상태
+                    loadState.refresh is LoadState.Loading -> {
+                        item { LoadingIndicator() }
+                    }
+                    // 오류 상태
+                    loadState.refresh is LoadState.Error -> {
+                        val e = loadState.refresh as LoadState.Error
+                        item { ErrorMessage(error = e.error) }
+                    }
+                    // 추가 데이터 로드 중
+                    loadState.append is LoadState.Loading -> {
+                        item { LoadingIndicator() }
+                    }
+                    // 추가 데이터 로드 오류 처리
+                    loadState.append is LoadState.Error -> {
+                        val e = loadState.append as LoadState.Error
+                        item {
+                            RetryButton(
+                                onClick = { bookmarkBins.retry() },
+                                errorMessage = e.error.localizedMessage
+                            )
                         }
                     }
                 }
@@ -187,27 +184,37 @@ fun BookmarksScreen(
  */
 @Composable
 fun SetInformation(bookmarkCount: Int) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .background(Color.White)
     ) {
-        // 결과 갯수 표시
-        Text(
-            text = stringResource(R.string.bookmarks_get_count, bookmarkCount),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
-        )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            // 결과 갯수 표시
+            Text(
+                text = stringResource(R.string.bookmarks_get_count, bookmarkCount),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
 
-        // 최근 저장 순 표시
-        Text(
-            text = stringResource(R.string.bookmarks_sort_recently),
-            textAlign = TextAlign.End,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
+            // 최근 저장 순 표시
+            Text(
+                text = stringResource(R.string.bookmarks_sort_recently),
+                textAlign = TextAlign.End,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        //구분선
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
     }
+
+    Spacer(modifier = Modifier.height(4.dp))
 }
 
 /**
@@ -227,7 +234,7 @@ fun SavedCard(
         modifier = modifier
             .fillMaxWidth()
             .height(100.dp)
-            .padding(vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
             .clickable(
                 // 카드 클릭 시 지도로 이동
                 onClick = { onCardClick(latLng) }
@@ -308,68 +315,6 @@ fun SavedCard(
                 }
             }
         }
-    }
-}
-
-
-/**
- * 구 선택 필터
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DistrictFilter(
-    districts: List<Int>,
-    selectedDistrict: Int?,
-    onDistrictSelected: (ApiSource?) -> Unit
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-
-    // 선택된 구 이름
-    val selectedDistrictText = stringResource(selectedDistrict ?: R.string.district_all)
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        OutlinedButton(
-            onClick = {
-                expanded = true
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        ) {
-            //드롭다운 버튼
-            DropDownButtonComponent(selectedDistrictText, expanded)
-        }
-
-        //드롭다운 메뉴
-        DropDownMenuComponent(
-            list = districts,
-            expanded = expanded,
-            modifier = Modifier
-                .exposedDropdownSize(true)
-                .height(300.dp),
-            onDismissRequest = { expanded = false },
-            onMenuSelected = { district ->
-                //메뉴 선택
-                val selectedSource = ApiSource.entries.first { it.displayNameRes == district }
-                onDistrictSelected(selectedSource)
-                expanded = false
-            },
-            headerMenu = {
-                //'전체'메뉴 추가
-                DropdownMenuItem(text = {
-                    Text(stringResource(R.string.district_all))
-                }, onClick = {
-                    onDistrictSelected(null) // 필터 초기화
-                    expanded = false
-                })
-            }
-        )
     }
 }
 

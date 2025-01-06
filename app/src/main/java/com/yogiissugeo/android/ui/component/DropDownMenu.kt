@@ -41,7 +41,6 @@ fun DropDownButtonComponent(title: String, expanded: Boolean) {
  * @param modifier 메뉴 modifier
  * @param onDismissRequest 메뉴 닫기 콜백
  * @param onMenuSelected 메뉴 선택 콜백
- * @param headerMenu 헤더 메뉴 컴포넌트
  */
 @Composable
 fun DropDownMenuComponent(
@@ -50,7 +49,6 @@ fun DropDownMenuComponent(
     modifier: Modifier,
     onDismissRequest: () -> Unit,
     onMenuSelected: (Int) -> Unit,
-    headerMenu: @Composable () -> Unit? = {}
 ) {
     // 드롭다운 메뉴
     DropdownMenu(
@@ -61,8 +59,6 @@ fun DropDownMenuComponent(
         },
         modifier = modifier
     ) {
-        //헤더메뉴
-        headerMenu()
         //리스트에 있는 아이템 메뉴화
         list.forEach { district ->
             DropdownMenuItem(

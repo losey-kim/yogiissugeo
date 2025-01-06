@@ -2,13 +2,13 @@ package com.yogiissugeo.android.ui.list
 
 import androidx.lifecycle.ViewModel
 import com.naver.maps.geometry.LatLng
-import com.yogiissugeo.android.utils.common.NavigationHelper
+import com.yogiissugeo.android.utils.common.ShareUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class SavedCardViewModel @Inject constructor(
-    private val navigationHelper: NavigationHelper
+    private val shareUtils: ShareUtils
 ) : ViewModel() {
 
     /**
@@ -17,7 +17,7 @@ class SavedCardViewModel @Inject constructor(
      * @param address 마커에 표시될 주소
      */
     fun onNavigate(latLng: LatLng, address: String) {
-        navigationHelper.navigateToNaverMap(latLng, address)
+        shareUtils.navigateToNaverMap(latLng, address)
     }
 
     /**
@@ -25,6 +25,6 @@ class SavedCardViewModel @Inject constructor(
      * @param address 공유할 주소
      */
     fun onShareAddress(address: String) {
-        navigationHelper.shareAddress(address)
+        shareUtils.shareAddress(address)
     }
 }
