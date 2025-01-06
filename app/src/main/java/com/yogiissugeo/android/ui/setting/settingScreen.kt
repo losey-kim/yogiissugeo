@@ -40,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.naver.maps.map.app.LegalNoticeActivity
 import com.naver.maps.map.app.OpenSourceLicenseActivity
 import com.yogiissugeo.android.R
+import com.yogiissugeo.android.data.model.RecyclingInfo
 
 //TODO 설정화면 개발 필요
 @Composable

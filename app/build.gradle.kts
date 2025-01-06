@@ -55,7 +55,9 @@ android {
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
+                "proguard-retrofit2.pro",
+                "proguard-gson.pro"
             )
             signingConfig = signingConfigs.named("release").get()
         }
