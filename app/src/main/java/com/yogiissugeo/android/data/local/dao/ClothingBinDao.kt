@@ -33,13 +33,39 @@ interface ClothingBinDao {
     /**
      * 저장된 수거함 데이터를 조회.
      *
+     * @param district 데이터가 속한 구 이름
+     * - null이면 전체
      * - `bookmark_table`과 조인하여 `clothing_bin_table` 데이터를 반환.
      * - `createdAt` 기준 내림차순 정렬.
      *
      * @return List<ClothingBin> - 저장된 수거함 리스트.
      */
-    @Query("SELECT * FROM clothing_bin_table JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId ORDER BY bookmark_table.createdAt DESC")
-    fun getBookmarkBins(): PagingSource<Int, ClothingBin>
+    @Query(
+        """
+        SELECT clothing_bin_table.* 
+        FROM clothing_bin_table 
+        JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId 
+        WHERE (:district IS NULL OR clothing_bin_table.district = :district)
+        ORDER BY bookmark_table.createdAt DESC
+    """
+    )
+    fun getBookmarkBins(district: String? = null): PagingSource<Int, ClothingBin>
+
+    /**
+     * 저장된 수거함 갯수 조회.
+     *
+     * @param district 데이터가 속한 구 이름
+     *  - null이면 전체
+     *
+     * @return Int - 저장된 수거함 갯수.
+     */
+    @Query("""
+        SELECT COUNT(*) 
+        FROM clothing_bin_table 
+        JOIN bookmark_table ON clothing_bin_table.id = bookmark_table.binId 
+        WHERE (:district IS NULL OR clothing_bin_table.district = :district)
+    """)
+    fun getBookmarkBinsCount(district: String? = null): Flow<Int>
 
     /**
      * 저장된 수거함 전체 데이터를 조회.

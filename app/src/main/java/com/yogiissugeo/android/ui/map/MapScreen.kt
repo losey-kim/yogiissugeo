@@ -1,5 +1,6 @@
 package com.yogiissugeo.android.ui.map
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
@@ -11,19 +12,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -59,6 +53,8 @@ import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.ui.component.ErrorMessage
 import com.yogiissugeo.android.ui.component.LoadingIndicator
+import com.yogiissugeo.android.ui.component.DropDownMenuComponent
+import com.yogiissugeo.android.ui.component.DropDownButtonComponent
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
 
@@ -227,9 +223,10 @@ fun NaverMapScreen(
         }
     }
 
-    // 북마크 데이터 바뀌면 클러스터 업데이트
-    LaunchedEffect(bookmarkedBins) {
-        if (bookmarkedBins != previousBookmarkBins.value){
+    // 북마크 데이터가 변경되었고 지도가 준비된 경우에만 클러스터 업데이트
+    LaunchedEffect(bookmarkedBins, naverMapHolder.value) {
+        val map = naverMapHolder.value
+        if (map != null && bookmarkedBins != previousBookmarkBins.value){
             previousBookmarkBins.value = bookmarkedBins
 
             if (bookmarkedBins.isNotEmpty()){
@@ -275,13 +272,13 @@ fun HandlePermissions(
     // Compose의 `LaunchedEffect`로 권한 요청 트리거
     LaunchedEffect(Unit) {
         //이미 권한이 있는 경우
-        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             setupNaverMapWithLocationTracking(naverMap, locationSource)
         } else { //권한이 없다면 권한 요청
             launcher.launch(
                 arrayOf(
-                    android.Manifest.permission.ACCESS_FINE_LOCATION, // 정확한 위치 권한
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION // 대략적인 위치 권한
+                    Manifest.permission.ACCESS_FINE_LOCATION, // 정확한 위치 권한
+                    Manifest.permission.ACCESS_COARSE_LOCATION // 대략적인 위치 권한
                 )
             )
         }
@@ -307,8 +304,7 @@ fun DistrictDropdownMenu(
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     // 선택된 구 이름
-    val selectedDistrictText =
-        selectedDistrict?.let { stringResource(it) } ?: stringResource(R.string.select_district)
+    val selectedDistrictText = stringResource(selectedDistrict ?: R.string.select_district)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -317,7 +313,6 @@ fun DistrictDropdownMenu(
     ) {
         ElevatedButton(
             onClick = {
-
             },
             colors = ButtonDefaults.elevatedButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -327,40 +322,24 @@ fun DistrictDropdownMenu(
             modifier = modifier
                 .menuAnchor()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 선택된 구 텍스트
-                Text(text = selectedDistrictText)
-
-                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-
-                // 드롭다운 아이콘
-                Icon(
-                    painter = painterResource(if (expanded) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down),
-                    contentDescription = null
-                )
-            }
+            //드롭다운 버튼
+            DropDownButtonComponent(selectedDistrictText, expanded)
         }
 
         // 드롭다운 메뉴
-        DropdownMenu(
+        DropDownMenuComponent(
+            list = districtList,
             expanded = expanded,
-            onDismissRequest = { expanded = false },
             modifier = Modifier
                 .exposedDropdownSize(true)
-                .height(200.dp)
-        ) {
-            districtList.forEach { district ->
-                DropdownMenuItem(
-                    text = { Text(text = stringResource(district)) },
-                    onClick = {
-                        onDistrictSelected(district)
-                        expanded = false // 항목 클릭 시 드롭다운 닫기
-                    },
-                )
+                .height(200.dp),
+            onDismissRequest = { expanded = false },
+            onMenuSelected = { district ->
+                //항목 클릭
+                onDistrictSelected(district)
+                expanded = false
             }
-        }
+        )
     }
 }
 

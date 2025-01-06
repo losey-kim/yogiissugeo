@@ -3,6 +3,7 @@ package com.yogiissugeo.android.data.repository
 import android.content.Context
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import com.opencsv.CSVReader
 import com.yogiissugeo.android.data.api.ClothingBinApiHandler
 import com.yogiissugeo.android.data.api.GeocodingApi
@@ -25,6 +26,7 @@ import retrofit2.Response
 import java.io.InputStream
 import java.io.InputStreamReader
 import javax.inject.Inject
+import kotlin.math.ceil
 
 /**
  * 의류 수거함 데이터를 관리하는 Repository 클래스
@@ -45,6 +47,11 @@ class ClothingBinRepository @Inject constructor(
     private val bookmarkDao: BookmarkDao,
     @ApplicationContext private val context: Context
 ) {
+    // 총 개수를 캐싱하기 위한 변수
+    private var cachedTotalCount: MutableMap<String, Int> = mutableMapOf()
+    // 전체 페이지 수를 캐싱하기 위한 변수
+    private var cachedTotalPage: MutableMap<String, Int> = mutableMapOf()
+
     /**
      * 특정 구의 데이터를 가져옴 (페이징 처리)
      *
@@ -59,7 +66,10 @@ class ClothingBinRepository @Inject constructor(
         perPage: Int = 100
     ): Result<List<ClothingBin>> {
         // 1. DB에 이미 데이터가 있는지 확인
-        val totalCount = districtDataCountDao.getTotalCount(apiSource.name) ?: 0
+        val sourceName = apiSource.name
+        val totalCount = cachedTotalCount[sourceName] ?: getTotalCount(apiSource).also {
+            cachedTotalCount[sourceName] = it
+        }
 
         // 2. 페이징 범위 확인
         if (isPageOutOfBounds(page, perPage, totalCount)) {
@@ -77,11 +87,18 @@ class ClothingBinRepository @Inject constructor(
             Result.success(binsInDb)
         } else {
             // 5. DB에 없다면, CSV or API 호출
-            if (apiSource.isCsvSource) {
-                loadBinsFromCsv(apiSource, perPage)
-            } else {
-                fetchAndStoreBinsFromApi(apiSource, page, perPage)
-            }
+            fetchBins(apiSource, page, perPage)
+        }
+    }
+
+    /**
+     * apiSource 타입에 따라 CSV or API 호출하는 함수
+     */
+    private suspend fun fetchBins(apiSource: ApiSource, page: Int, perPage: Int): Result<List<ClothingBin>> {
+        return if (apiSource.isCsvSource) {
+            loadBinsFromCsv(apiSource, perPage)
+        } else {
+            fetchAndStoreBinsFromApi(apiSource, page, perPage)
         }
     }
 
@@ -145,26 +162,30 @@ class ClothingBinRepository @Inject constructor(
         }
     }
 
-    //전체 페이지 수를 가져옴
-    suspend fun getTotalCount(apiSource: ApiSource,): Int {
-        return districtDataCountDao.getTotalCount(apiSource.name)?: 0
-    }
-
     /**
-     * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옴.
+     * 북마크된 수거함 데이터를 페이징 형태로 가져옴.
      * 한 페이지당 20개의 아이템을 로드
      * Flow 형태로 데이터를 제공.
      */
-    fun getBookmarkBinsPaged() = Pager(
-        config = PagingConfig(
-            pageSize = 20, // 한 페이지당 아이템 수
-            enablePlaceholders = false
-        ),
-        pagingSourceFactory = { clothingBinDao.getBookmarkBins() }
-    ).flow
+    fun getBookmarkBinsPaged(district: String? = null): Flow<PagingData<ClothingBin>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20, // 한 페이지당 아이템 수
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = { clothingBinDao.getBookmarkBins(district) }
+        ).flow
+    }
 
     /**
-     * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옴.
+     * 북마크된 수거함 갯수를 가져옴
+     */
+    suspend fun getBookmarkBinsCount(district: String? = null): Flow<Int> {
+        return clothingBinDao.getBookmarkBinsCount(district)
+    }
+
+    /**
+     * 북마크된 수거함 데이터를 페이징 형태로 가져옴.
      * 저장된 수거함 데이터 전체를 가져옴.
      */
     fun getAllBookmarkedBins(): Flow<List<ClothingBin>> {
@@ -172,30 +193,13 @@ class ClothingBinRepository @Inject constructor(
     }
 
     /**
-     * 저장 상태를 추가.
-     * 수거함 ID와 현재 시간을 저장소에 추가.
+     * 저장 상태를 toggle합니다.
+     *
+     * @param binId toggle할 binId
      */
-    suspend fun addBookmark(binId: String) {
-        val bookmark = Bookmark(binId = binId, createdAt = System.currentTimeMillis()) // 현재 시간 추가
-        bookmarkDao.insertBookmark(bookmark)
-        clothingBinDao.updateBookmarkStatus(binId, true)
-    }
-
-    /**
-     * 저장 상태를 제거.
-     * 수거함 ID를 기반으로 저장소에서 삭제.
-     */
-    suspend fun removeBookmark(binId: String) {
-        bookmarkDao.deleteBookmark(Bookmark(binId, 0))
-        clothingBinDao.updateBookmarkStatus(binId, false)
-    }
-
-    /**
-     * 특정 수거함이 저장상태인지 확인.
-     * 저장 여부를 Boolean 값으로 반환.
-     */
-    suspend fun isBookmark(binId: String): Boolean {
-        return bookmarkDao.isBookmark(binId)
+    suspend fun toggleBookmark(binId: String){
+        val isBookmark = bookmarkDao.toggleBookmark(binId)
+        clothingBinDao.updateBookmarkStatus(binId, !isBookmark)
     }
 
     /**
@@ -267,6 +271,9 @@ class ClothingBinRepository @Inject constructor(
         clothingBinDao.insertBins(bins)
         // 총 데이터 카운트 삽입 또는 업데이트
         districtDataCountDao.insertOrUpdateCount(districtName, totalCount)
+
+        // 데이터가 변경될 때 캐시 무효화
+        invalidateCache(districtName)
     }
 
     /**
@@ -309,6 +316,25 @@ class ClothingBinRepository @Inject constructor(
 
         // originalData를 순회하면서 updatedMap에 있는 경우 업데이트된 데이터를 사용
         return originalData.map { bin -> updatedMap[bin.id] ?: bin }
+    }
+
+    //전체 페이지 수를 가져옴
+    suspend fun getTotalCount(apiSource: ApiSource): Int {
+        return districtDataCountDao.getTotalCount(apiSource.name)?: 0
+    }
+
+    // 전체 페이지 수를 가져옴 (캐싱 포함)
+    suspend fun getTotalPage(apiSource: ApiSource, perPage: Int): Int {
+        val sourceName = apiSource.name
+        return cachedTotalPage.getOrPut(sourceName) {
+            ceil(getTotalCount(apiSource).toDouble() / perPage).toInt()
+        }
+    }
+
+    // 데이터가 변경될 때 캐시 무효화
+    private fun invalidateCache(apiSourceName: String) {
+        cachedTotalCount.remove(apiSourceName)
+        cachedTotalPage.remove(apiSourceName)
     }
 
     // CSV 데이터 파싱 함수 추가

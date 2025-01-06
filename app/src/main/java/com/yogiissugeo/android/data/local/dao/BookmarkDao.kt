@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.yogiissugeo.android.data.local.model.Bookmark
 
 @Dao
@@ -29,6 +30,22 @@ interface BookmarkDao {
      */
     @Delete
     suspend fun deleteBookmark(bookmark: Bookmark)
+
+    /**
+     * 저장 상태를 확인하여 toggle합니다.
+     *
+     * @param binId toggle할 binId
+     */
+    @Transaction
+    suspend fun toggleBookmark(binId: String):Boolean {
+        val isBookmark = isBookmark(binId)
+        if (isBookmark) {
+            deleteBookmark(Bookmark(binId = binId, 0))
+        } else {
+            insertBookmark(Bookmark(binId = binId, createdAt = System.currentTimeMillis()))
+        }
+        return isBookmark
+    }
 
     /**
      * 특정 수거함이 저장 상태인지 확인.

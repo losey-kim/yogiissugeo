@@ -2,6 +2,7 @@ package com.yogiissugeo.android.ui.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
@@ -9,13 +10,18 @@ import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.repository.ClothingBinRepository
 import com.yogiissugeo.android.utils.network.ResourceException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
-import kotlin.math.ceil
 
 /**
  * 의류 수거함 데이터를 관리하는 ViewModel 클래스.
@@ -43,10 +49,30 @@ class BinListViewModel @Inject constructor(
     val clothingBins: StateFlow<List<ClothingBin>> = _clothingBins
 
     /**
+     * 선택한 구의 API 소스를 저장하는 상태.
+     */
+    private val _selectedApiSource = MutableStateFlow<ApiSource?>(null)
+    val selectedApiSource: StateFlow<ApiSource?> = _selectedApiSource.asStateFlow()
+
+    /**
      * 즐겨찾기된 수거함 데이터를 페이징 형태로 가져옵니다.
      * 저장소에서 가져온 데이터를 Flow로 제공.
      */
-    val bookmarksBins = clothingBinRepository.getBookmarkBinsPaged().cachedIn(viewModelScope)
+    // 선택된 구에 따라 필터링된 북마크된 목록을 제공
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val bookmarksBins: Flow<PagingData<ClothingBin>> = _selectedApiSource
+        .flatMapLatest { district ->
+            clothingBinRepository.getBookmarkBinsPaged(district?.name)
+        }
+        .cachedIn(viewModelScope)
+
+    // 선택된 구에 따라 필터링된 총 개수를 제공
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val bookmarkCount: StateFlow<Int> = _selectedApiSource
+        .flatMapLatest { district ->
+            clothingBinRepository.getBookmarkBinsCount(district?.name)
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     /**
      * 저장된 수거함 데이터 전체를 가져옴
@@ -73,12 +99,6 @@ class BinListViewModel @Inject constructor(
     val totalPage: StateFlow<Int> = _totalPage
 
     /**
-     * 선택한 구의 API 소스를 저장하는 상태.
-     */
-    private val _selectedApiSource = MutableStateFlow<ApiSource?>(null)
-    val selectedApiSource: StateFlow<ApiSource?> = _selectedApiSource.asStateFlow()
-
-    /**
      * 특정 구와 페이지의 의류 수거함 데이터를 가져옵니다.
      *
      * @param district 요청할 구의 API 소스.
@@ -90,25 +110,33 @@ class BinListViewModel @Inject constructor(
             _isLoading.value = true // 로딩 시작
             _errorMessage.value = null // 에러 메시지 초기화
 
-            //데이터를 가져옴
-            val result = clothingBinRepository.getOrFetchBins(apiSource, page, perPage)
-            result
-                .onSuccess { bins ->
+            try{
+                //데이터를 가져옴
+                val result = clothingBinRepository.getOrFetchBins(apiSource, page, perPage)
+                result.onSuccess { bins ->
                     _clothingBins.value = bins
                     // 현재 페이지 번호 증가
                     _currentPage.value += 1
                     // 구가 바뀌었으면 선택 구 갱신
                     if (_selectedApiSource.value != apiSource) {
                         _selectedApiSource.value = apiSource
-                        //전체 페이지 수 계산
-                        _totalPage.value = ceil(clothingBinRepository.getTotalCount(apiSource).toDouble() / perPage).toInt()
+                        //전체 페이지 수 계산(캐싱된 값이 있는지 확인)
+                        _totalPage.value = clothingBinRepository.getTotalPage(apiSource, perPage)
                     }
                 }.onFailure {
                     handleApiFailure(it) // 에러 처리
                 }
-
-            _isLoading.value = false // 로딩 종료
+            } catch (e: Exception){
+                handleApiFailure(e)
+            } finally {
+                _isLoading.value = false // 로딩 종료
+            }
         }
+    }
+
+    //구 선택정보 저장
+    fun setSelectedApiSource(apiSource: ApiSource?){
+        _selectedApiSource.value = apiSource
     }
 
     /**
@@ -117,11 +145,7 @@ class BinListViewModel @Inject constructor(
      * @param binId toggle할 binId
      */
     fun toggleBookmark(binId: String) = viewModelScope.launch {
-        if (clothingBinRepository.isBookmark(binId)) {
-            clothingBinRepository.removeBookmark(binId)
-        } else {
-            clothingBinRepository.addBookmark(binId)
-        }
+        clothingBinRepository.toggleBookmark(binId)
     }
 
     /**
@@ -134,6 +158,7 @@ class BinListViewModel @Inject constructor(
     private fun handleApiFailure(error: Throwable) {
         _errorMessage.value = when (error) {
             is ResourceException -> error.errorResId
+            is HttpException -> R.string.error_server
             else -> R.string.error_unknown
         }
     }

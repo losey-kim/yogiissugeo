@@ -19,11 +19,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,72 +49,138 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.yogiissugeo.android.R
+import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.ui.component.LoadingIndicator
+import com.yogiissugeo.android.ui.component.DropDownButtonComponent
+import com.yogiissugeo.android.ui.component.DropDownMenuComponent
 
 //저장된 화면
 @Composable
-fun BookmarksScreen(binListViewModel: BinListViewModel = hiltViewModel()) {
+fun BookmarksScreen(
+    binListViewModel: BinListViewModel = hiltViewModel(),
+    districtViewModel: DistrictViewModel = hiltViewModel()
+) {
+    // 구 목록 가져오기
+    val districts by districtViewModel.districts.collectAsState()
+
+    // 선택된 구 상태를 ViewModel과 연동
+    val selectedDistrict by binListViewModel.selectedApiSource.collectAsState()
+
+    // 현재 선택된 구 필터로 북마크된 목록
     val bookmarkBins = binListViewModel.bookmarksBins.collectAsLazyPagingItems()
 
-    // 데이터가 비어 있을 경우
-    if (bookmarkBins.itemCount == 0) {
-        when (bookmarkBins.loadState.refresh) {
-            is LoadState.Loading -> LoadingIndicator() // 로딩 중
-            is LoadState.NotLoading -> EmptySavedList() // 데이터 없음
-            is LoadState.Error -> ErrorMessage((bookmarkBins.loadState.refresh as LoadState.Error).error) // 에러 발생
-        }
-    } else {
-        // 데이터가 있을 경우 리스트로 표시
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-            ,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp) // 항목 사이 간격 추가
-        ) {
-            // 저장 항목을 리스트에 추가
-            items(bookmarkBins.itemCount, key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
-                val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
-                bin?.let {
-                    SavedCard(
-                        bin = it,
-                        onToggleBookmark = { binId -> binListViewModel.toggleBookmark(binId) },
-                        Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                    )
-                }
-            }
+    // 현재 필터링된 결과의 갯수 관찰
+    val bookmarkCount by binListViewModel.bookmarkCount.collectAsState()
 
-            // 추가 상태 처리
-            bookmarkBins.apply {
-                when {
-                    // 로딩 상태
-                    loadState.refresh is LoadState.Loading -> {
-                        item { LoadingIndicator() }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // 구 필터
+        DistrictFilter(
+            districts = districts.map { it.displayNameRes },
+            selectedDistrict = selectedDistrict?.displayNameRes,
+            onDistrictSelected = { district ->
+                //구 선택 시 데이터 로드
+                binListViewModel.setSelectedApiSource(district)
+            }
+        )
+
+        //총 갯수와 정렬기준 출력
+        SetInformation(bookmarkCount)
+
+        //구분선
+        HorizontalDivider(modifier = Modifier.padding(16.dp))
+
+        // 데이터가 비어 있을 경우
+        if (bookmarkBins.itemCount == 0) {
+            when (bookmarkBins.loadState.refresh) {
+                is LoadState.Loading -> LoadingIndicator() // 로딩 중
+                is LoadState.NotLoading -> EmptySavedList() // 데이터 없음
+                is LoadState.Error -> ErrorMessage((bookmarkBins.loadState.refresh as LoadState.Error).error) // 에러 발생
+            }
+        } else {
+            // 데이터가 있을 경우 리스트로 표시
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp) // 항목 사이 간격 추가
+            ) {
+                // 저장 항목을 리스트에 추가
+                items(
+                    bookmarkBins.itemCount,
+                    key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
+                    val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
+                    bin?.let {
+                        SavedCard(
+                            bin = it,
+                            onToggleBookmark = { binId -> binListViewModel.toggleBookmark(binId) },
+                            Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                        )
                     }
-                    // 오류 상태
-                    loadState.refresh is LoadState.Error -> {
-                        val e = loadState.refresh as LoadState.Error
-                        item { ErrorMessage(error = e.error) }
-                    }
-                    // 추가 데이터 로드 중
-                    loadState.append is LoadState.Loading -> {
-                        item { LoadingIndicator() }
-                    }
-                    // 추가 데이터 로드 오류 처리
-                    loadState.append is LoadState.Error -> {
-                        val e = loadState.append as LoadState.Error
-                        item {
-                            RetryButton(
-                                onClick = { bookmarkBins.retry() },
-                                errorMessage = e.error.localizedMessage
-                            )
+                }
+
+                // 추가 상태 처리
+                bookmarkBins.apply {
+                    when {
+                        // 로딩 상태
+                        loadState.refresh is LoadState.Loading -> {
+                            item { LoadingIndicator() }
+                        }
+                        // 오류 상태
+                        loadState.refresh is LoadState.Error -> {
+                            val e = loadState.refresh as LoadState.Error
+                            item { ErrorMessage(error = e.error) }
+                        }
+                        // 추가 데이터 로드 중
+                        loadState.append is LoadState.Loading -> {
+                            item { LoadingIndicator() }
+                        }
+                        // 추가 데이터 로드 오류 처리
+                        loadState.append is LoadState.Error -> {
+                            val e = loadState.append as LoadState.Error
+                            item {
+                                RetryButton(
+                                    onClick = { bookmarkBins.retry() },
+                                    errorMessage = e.error.localizedMessage
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * 총 갯수와 정렬 기준 출력
+ */
+@Composable
+fun SetInformation(bookmarkCount: Int){
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        // 결과 갯수 표시
+        Text(
+            text = stringResource(R.string.bookmarks_get_count, bookmarkCount),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+
+        // 최근 저장 순 표시
+        Text(
+            text = stringResource(R.string.bookmarks_sort_recently),
+            textAlign = TextAlign.End,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -121,7 +198,7 @@ fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Mo
                 true
             },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.elevatedCardElevation(4.dp)
+        elevation = CardDefaults.elevatedCardElevation(4.dp),
     ) {
         Row(
             modifier = Modifier
@@ -130,15 +207,26 @@ fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Mo
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 텍스트 영역
-            Text(
-                text = bin.address.toString(),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f), // 텍스트 영역 가중치 설정
-                maxLines = 2, // 텍스트 줄 수 제한
-                overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
-            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // 구 영역
+                Text(
+                    text = stringResource(ApiSource.entries.first { it.name == bin.district }.displayNameRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1, // 텍스트 줄 수 제한
+                    overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                // 주소 영역
+                Text(
+                    text = bin.address.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2, // 텍스트 줄 수 제한
+                    overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
+                )
+            }
 
             // 북마크 버튼
             IconButton(
@@ -152,6 +240,67 @@ fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Mo
                 )
             }
         }
+    }
+}
+
+/**
+ * 구 선택 필터
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DistrictFilter(
+    districts: List<Int>,
+    selectedDistrict: Int?,
+    onDistrictSelected: (ApiSource?) -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    // 선택된 구 이름
+    val selectedDistrictText = stringResource(selectedDistrict ?: R.string.district_all)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        OutlinedButton(
+            onClick = {
+                expanded = true
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        ) {
+            //드롭다운 버튼
+            DropDownButtonComponent(selectedDistrictText, expanded)
+        }
+
+        //드롭다운 메뉴
+        DropDownMenuComponent(
+            list = districts,
+            expanded = expanded,
+            modifier = Modifier
+                .exposedDropdownSize(true)
+                .height(300.dp),
+            onDismissRequest = { expanded = false },
+            onMenuSelected = { district ->
+                //메뉴 선택
+                val selectedSource = ApiSource.entries.first { it.displayNameRes == district }
+                onDistrictSelected(selectedSource)
+                expanded = false
+            },
+            headerMenu = {
+                //'전체'메뉴 추가
+                DropdownMenuItem(text = {
+                    Text(stringResource(R.string.district_all))
+                }, onClick = {
+                    onDistrictSelected(null) // 필터 초기화
+                    expanded = false
+                })
+            }
+        )
     }
 }
 
@@ -212,7 +361,10 @@ fun RetryButton(onClick: () -> Unit, errorMessage: String?) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = stringResource(R.string.bookmarks_error_message, errorMessage.toString()), color = MaterialTheme.colorScheme.error)
+        Text(
+            text = stringResource(R.string.bookmarks_error_message, errorMessage.toString()),
+            color = MaterialTheme.colorScheme.error
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = onClick) {
             Text(text = stringResource(R.string.bookmarks_retry_load))
@@ -228,18 +380,26 @@ fun ErrorMessage(error: Throwable) {
     Text(
         text = stringResource(R.string.bookmarks_error_message, error.toString()),
         color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.fillMaxWidth().padding(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun showSetInformationPreview(){
+    SetInformation(100)
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SavedCardPreview() {
+    SavedCard(ClothingBin(id = "", "라라라라라", district = "마포구"), {}, Modifier)
 }
 
 @Preview(showBackground = true)
 @Composable
 fun SavedScreenPreview() {
     EmptySavedList()
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SavedCardPreview() {
-    SavedCard(ClothingBin(id = "", "라라라라라"), {}, Modifier)
 }
