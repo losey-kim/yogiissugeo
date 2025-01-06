@@ -45,6 +45,7 @@ fun updateDistrictLeafMarker(
     marker.icon = OverlayImage.fromResource(R.drawable.ic_marker_add)
     marker.anchor = Marker.DEFAULT_ANCHOR
     marker.captionText = itemData?.address.orEmpty()
+    marker.captionRequestedWidth = CAPTION_WIDTH
     marker.setCaptionAligns(Align.Bottom)
     marker.captionColor = Color.BLACK
     marker.captionHaloColor = Color.WHITE
@@ -82,6 +83,7 @@ fun updateBookmarkLeafMarker(
     marker.icon = OverlayImage.fromResource(R.drawable.ic_marker_bookmark)
     marker.anchor = Marker.DEFAULT_ANCHOR
     marker.captionText = itemData?.address.orEmpty()
+    marker.captionRequestedWidth = CAPTION_WIDTH
     marker.setCaptionAligns(Align.Bottom)
     marker.captionColor = Color.BLACK
     marker.captionHaloColor = Color.WHITE
@@ -119,3 +121,5 @@ class ItemKey(val id: Int, private val latLng: LatLng) : ClusteringKey {
     //ID 값을 기반으로 해시 코드를 생성
     override fun hashCode() = id
 }
+
+const val CAPTION_WIDTH = 100
