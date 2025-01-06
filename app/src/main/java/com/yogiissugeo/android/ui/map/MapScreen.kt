@@ -57,12 +57,14 @@ import com.yogiissugeo.android.ui.component.DropDownMenuComponent
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
+import com.yogiissugeo.android.ui.list.SharedMapViewModel
 
 @Composable
 fun NaverMapScreen(
     binListViewModel: BinListViewModel = hiltViewModel(),
     districtViewModel: DistrictViewModel = hiltViewModel(),
-    mapViewModel: MapViewModel = hiltViewModel()
+    mapViewModel: MapViewModel = hiltViewModel(),
+    sharedViewModel: SharedMapViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current // 현재 Compose가 실행되는 Context를 가져옴
     val lifecycle = LocalLifecycleOwner.current.lifecycle // 현재 LifecycleOwner를 가져옴
@@ -87,6 +89,9 @@ fun NaverMapScreen(
     val previousClothingBins = rememberSaveable { mutableStateOf(clothingBins) }  //의류수거함 값
     val previousBookmarkBins = rememberSaveable { mutableStateOf(clothingBins) }  //저장된 의류수거함 값
     val previousDistrict = rememberSaveable { mutableStateOf(selectedDistrict) }
+
+    // 선택 좌표 상태
+    val selectedCoordinates by sharedViewModel.selectedCoordinates.collectAsState()
 
     // MapView의 Lifecycle 관리
     ManageMapViewLifecycle(lifecycle, mapView)
@@ -235,6 +240,17 @@ fun NaverMapScreen(
         }
     }
 
+    // 선택 좌표가 변경되었고 지도가 준비된 경우에만 카메라 이동
+    LaunchedEffect(selectedCoordinates, naverMapHolder.value) {
+        selectedCoordinates?.let { coordinates ->
+            naverMapHolder.value?.let { naverMap ->
+                animateCameraToPosition(coordinates.latitude, coordinates.longitude, naverMap, FOCUS_ZOOM_LEVEL)
+                // 좌표 이동 후 값 초기화
+                sharedViewModel.clearSelectedCoordinates()
+            }
+        }
+    }
+
     // NaverMap이 준비되었을 때 권한 요청 처리
     naverMapHolder.value?.let { naverMap ->
         HandlePermissions(context, naverMap, remember {
@@ -365,12 +381,12 @@ fun setupNaverMap(
 }
 
 //카메라 이동 함수
-fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: NaverMap) {
+fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: NaverMap, zoomLevel: Double = DEFAULT_ZOOM_LEVEL) {
     naverMap.moveCamera(
         CameraUpdate.toCameraPosition(
             CameraPosition(
                 LatLng(latitude, longitude),
-                DEFAULT_ZOOM_LEVEL
+                zoomLevel
             )
         ).animate(
             CameraAnimation.Easing, NaverMap.DEFAULT_DEFAULT_CAMERA_ANIMATION_DURATION.toLong()
@@ -431,4 +447,5 @@ fun ManageMapViewLifecycle(
 }
 
 private const val DEFAULT_ZOOM_LEVEL = 10.0
+private const val FOCUS_ZOOM_LEVEL = 15.0
 private const val LOCATION_PERMISSION_REQUEST_CODE = 1000

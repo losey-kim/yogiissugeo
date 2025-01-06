@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * 지원하는 구 데이터를 관리하는 ViewModel 클래스.
+ */
 @HiltViewModel
 class DistrictViewModel @Inject constructor(
     private val remoteConfigManager: RemoteConfigManager

@@ -46,20 +46,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.naver.maps.geometry.LatLng
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
 import com.yogiissugeo.android.ui.component.DropDownMenuComponent
+import com.yogiissugeo.android.ui.nav.NavigationItem
 
 //저장된 화면
 @Composable
 fun BookmarksScreen(
     binListViewModel: BinListViewModel = hiltViewModel(),
-    districtViewModel: DistrictViewModel = hiltViewModel()
+    districtViewModel: DistrictViewModel = hiltViewModel(),
+    sharedViewModel: SharedMapViewModel = hiltViewModel(),
+    navController: NavHostController
 ) {
     // 구 목록 가져오기
     val districts by districtViewModel.districts.collectAsState()
@@ -117,6 +123,12 @@ fun BookmarksScreen(
                     bin?.let {
                         SavedCard(
                             bin = it,
+                            onCardClick = {
+                                // 카드 클릭 시 좌표 저장
+                                sharedViewModel.selectCoordinates(LatLng((it.latitude?.toDouble() ?: 0.0), (it.longitude?.toDouble() ?: 0.0)))
+                                // 지도로 이동
+                                navController.navigate(NavigationItem.Map.route)
+                            },
                             onToggleBookmark = { binId -> binListViewModel.toggleBookmark(binId) },
                             Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
                         )
@@ -188,13 +200,14 @@ fun SetInformation(bookmarkCount: Int){
  * 개별 저장 항목을 표시
  */
 @Composable
-fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Modifier) {
+fun SavedCard(bin: ClothingBin, onCardClick: () -> Unit, onToggleBookmark: (String) -> Unit, modifier: Modifier) {
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clickable {
                 //TODO 카드 클릭 시 이동 추가
+                onCardClick()
                 true
             },
         shape = RoundedCornerShape(16.dp),
@@ -225,6 +238,20 @@ fun SavedCard(bin: ClothingBin, onToggleBookmark: (String) -> Unit, modifier: Mo
                     fontWeight = FontWeight.Bold,
                     maxLines = 2, // 텍스트 줄 수 제한
                     overflow = TextOverflow.Ellipsis // 텍스트가 길면 줄임표 처리
+                )
+            }
+
+            // 공유 버튼
+            IconButton(
+                onClick = {
+                    //TODO 이동
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_share),
+                    contentDescription = stringResource(R.string.bookmarks_share),
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -395,7 +422,7 @@ fun showSetInformationPreview(){
 @Preview(showBackground = true)
 @Composable
 fun SavedCardPreview() {
-    SavedCard(ClothingBin(id = "", "라라라라라", district = "마포구"), {}, Modifier)
+    SavedCard(ClothingBin(id = "", "라라라라라", district = "마포구"), {}, {}, Modifier)
 }
 
 @Preview(showBackground = true)
