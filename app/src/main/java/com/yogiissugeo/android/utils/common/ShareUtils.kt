@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import com.naver.maps.geometry.LatLng
-import com.yogiissugeo.android.BuildConfig
 import com.yogiissugeo.android.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -28,7 +27,7 @@ class ShareUtils @Inject constructor(
             .appendQueryParameter("lat", latLng.latitude.toString()) // 위도
             .appendQueryParameter("lng", latLng.longitude.toString()) // 경도
             .appendQueryParameter("name", address) // 주소
-            .appendQueryParameter("appname", BuildConfig.APPLICATION_ID) // 앱 이름
+            .appendQueryParameter("appname", context.packageName) // 앱 이름
             .build()
 
         // Intent 생성

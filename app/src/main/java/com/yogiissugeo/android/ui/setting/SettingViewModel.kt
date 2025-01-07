@@ -37,4 +37,13 @@ class SettingsViewModel @Inject constructor(
             _recyclingInfo.value = emptyList() // 파싱 실패 시 기본값 설정
         }
     }
+
+    // 재활용 정보 바텀시트 상태
+    private val _showRecyclingBottomSheet = MutableStateFlow(false)
+    val showRecyclingBottomSheet: StateFlow<Boolean> = _showRecyclingBottomSheet
+
+    // 바텀시트 상태 토글
+    fun toggleRecyclingBottomSheet(show: Boolean) {
+        _showRecyclingBottomSheet.value = show
+    }
 }

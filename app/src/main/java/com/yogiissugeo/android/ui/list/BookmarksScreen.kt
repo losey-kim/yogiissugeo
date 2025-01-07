@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -239,7 +240,7 @@ fun SavedCard(
                 // 카드 클릭 시 지도로 이동
                 onClick = { onCardClick(latLng) }
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(dimensionResource(R.dimen.rounded_card)),
         elevation = CardDefaults.elevatedCardElevation(4.dp),
     ) {
         Row(
