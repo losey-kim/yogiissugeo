@@ -61,6 +61,12 @@ android {
             )
             signingConfig = signingConfigs.named("release").get()
         }
+
+        debug {
+            applicationIdSuffix = ".debug"
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -131,7 +137,7 @@ dependencies {
     implementation(libs.firebase.config)
 
     //openCSV
-    implementation (libs.opencsv)
+    implementation(libs.opencsv)
 
     implementation(libs.kotlinx.serialization.json)
 
