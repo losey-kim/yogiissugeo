@@ -1,6 +1,9 @@
 package com.yogiissugeo.android.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
@@ -10,12 +13,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,34 +31,36 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.yogiissugeo.android.BuildConfig
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.ui.nav.AppNavHost
 import com.yogiissugeo.android.ui.nav.BottomNavigationBar
 import com.yogiissugeo.android.ui.splash.SplashScreen
-import com.yogiissugeo.android.utils.config.RemoteConfigManager
+import com.yogiissugeo.android.ui.splash.SplashViewModel
 
 
 @Composable
-fun AppEntryPoint(remoteConfigManager: RemoteConfigManager) {
+fun AppEntryPoint() {
     // 초기화 상태 관리
-    val isInitialized = remember { mutableStateOf(false) }
-    val navController = rememberNavController()
-
-    // 초기화 작업 실행
-    LaunchedEffect(Unit) {
-        remoteConfigManager.initialize {
-            isInitialized.value = true // 초기화 완료 시 true로 설정
-        }
-    }
+    val splashViewModel: SplashViewModel = hiltViewModel()
+    val isInitialized by splashViewModel.isInitialized.collectAsState()
+    val forceUpdate by splashViewModel.forceUpdate.collectAsState()
 
     // 초기화 상태에 따라 다른 화면 표시
-    if (isInitialized.value) {
-        MainApp(navController)  // 초기화 완료 후 메인 화면
+    if (isInitialized) {
+        if (forceUpdate){ // 강제업데이트 필요 시 다이얼로그 출력
+            ForceUpdateDialog()
+        } else {
+            val navController = rememberNavController()
+            MainApp(navController)  // 초기화 완료 후 메인 화면
+        }
     } else {
         SplashScreen() // 초기화 중 로딩 화면
     }
@@ -112,6 +120,9 @@ fun TopAppBar() {
     )
 }
 
+/**
+ * 애드몹 배너 광고
+ */
 @Composable
 fun AdMobBannerView(adUnitId: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -133,6 +144,39 @@ fun AdMobBannerView(adUnitId: String, modifier: Modifier = Modifier) {
         update = { adView ->
             adView.loadAd(AdRequest.Builder().build())
         }
+    )
+}
+
+/**
+ * 강제업데이트 다이얼로그
+ */
+@Composable
+fun ForceUpdateDialog() {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = {
+        },
+        title = { Text(stringResource(R.string.force_update_title)) },
+        text = { Text(stringResource(R.string.force_update_message)) },
+        confirmButton = {
+            TextButton(onClick = {
+                try {
+                    // 업데이트 URL로 이동
+                    val url = context.getString(R.string.playstore_link)
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }) {
+                // 확인 버튼
+                Text(stringResource(R.string.force_update_button))
+            }
+        },
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            dismissOnBackPress = false
+        )
     )
 }
 

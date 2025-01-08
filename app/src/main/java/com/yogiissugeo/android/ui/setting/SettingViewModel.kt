@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 /**
- * 설정 화면 데이터를 관리하는 ViewModel 클래스.
+ * 설정 화면 데이터를 관리하는 ViewModel
  **/
 @HiltViewModel
 class SettingsViewModel @Inject constructor(

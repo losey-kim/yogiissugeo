@@ -5,7 +5,6 @@ import com.google.firebase.remoteconfig.ConfigUpdate
 import com.google.firebase.remoteconfig.ConfigUpdateListener
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
-import com.naver.maps.map.NaverMapSdk
 import com.yogiissugeo.android.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +16,6 @@ import javax.inject.Singleton
 @Singleton
 class RemoteConfigManager @Inject constructor(
     private val remoteConfig: FirebaseRemoteConfig,
-    @ApplicationContext private val context: Context
 ) {
 
     // RemoteConfig 초기화 완료 상태를 추적하기 위한 StateFlow
@@ -71,6 +69,15 @@ class RemoteConfigManager @Inject constructor(
      */
     fun getRemoteConfigValue(key: String): String {
         return remoteConfig.getString(key)
+    }
+
+    /**
+     * RemoteConfig에서 특정 키의 값을 가져오는 메서드 (숫자타입)
+     * @param key RemoteConfig 키
+     * @return 키에 해당하는 값
+     */
+    fun getRemoteConfigValueNumber(key: String): Long {
+        return remoteConfig.getLong(key)
     }
 
     /**
