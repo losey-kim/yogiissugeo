@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.yogiissugeo.android.utils.navigation.navigateWithOptions
 
 
 @Composable
@@ -40,13 +41,8 @@ fun BottomNavigationBar(navController: NavHostController) {
                 },
                 label = { Text(stringResource(item.title)) },
                 onClick = {
-                    // 해당 경로로 네비게이션 이동
-                    navController.navigate(item.route) {
-                        // 시작 지점으로 돌아가는 백스택 설정
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true // 중복된 화면 생성 방지
-                        restoreState = true // 이전 상태 복원
-                    }
+                    // 항목 클릭 시 해당 화면으로 이동
+                    navController.navigateWithOptions(item.route)
                 }
             )
         }

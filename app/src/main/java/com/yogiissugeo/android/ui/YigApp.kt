@@ -3,22 +3,15 @@ package com.yogiissugeo.android.ui
 import android.content.Context
 import android.os.Build
 import android.view.WindowManager
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,15 +62,12 @@ fun MainApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.safeDrawingPadding(),
         containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar() //상단 앱바
-        },
         bottomBar = {
             Column(
-                modifier = Modifier.navigationBarsPadding() // 시스템 내비게이션 영역만큼 패딩 추가
+                modifier = Modifier
+                    .navigationBarsPadding() // 시스템 내비게이션 영역만큼 패딩 추가
             ) {
                 // 하단 배너 광고
                 AdMobBannerView(adUnitId = BuildConfig.ADMOB_BANNER_AD)
@@ -96,12 +86,6 @@ fun MainApp(modifier: Modifier = Modifier) {
             Column(
                 Modifier
                     .fillMaxSize()
-                    .consumeWindowInsets(padding)
-                    .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Horizontal,
-                        ),
-                    )
             ) {
                 AppNavHost(navController = navController)
             }

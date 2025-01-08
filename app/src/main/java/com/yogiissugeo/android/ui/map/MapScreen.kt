@@ -11,6 +11,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -96,7 +97,11 @@ fun NaverMapScreen(
     // MapView의 Lifecycle 관리
     ManageMapViewLifecycle(lifecycle, mapView)
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
         // AndroidView로 MapView를 Compose UI에 포함
         AndroidView(
             factory = {
@@ -153,7 +158,8 @@ fun NaverMapScreen(
                 onDistrictSelected = { selectedName ->
                     //구 선택 시 클러스터 초기화
                     mapViewModel.clearAll()
-                    val selectedSource = ApiSource.entries.first { it.displayNameRes == selectedName }
+                    val selectedSource =
+                        ApiSource.entries.first { it.displayNameRes == selectedName }
                     //초기 데이터 로드
                     binListViewModel.onDistrictSelected(selectedSource)
                 },
@@ -162,7 +168,8 @@ fun NaverMapScreen(
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
+        val shouldShowMoreButton =
+            clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -230,12 +237,13 @@ fun NaverMapScreen(
 
     // 북마크 데이터가 변경되었고 지도가 준비된 경우에만 클러스터 업데이트
     LaunchedEffect(bookmarkedBins, naverMapHolder.value) {
-        val map = naverMapHolder.value
-        if (map != null && bookmarkedBins != previousBookmarkBins.value){
-            previousBookmarkBins.value = bookmarkedBins
+        naverMapHolder.value?.let {
+            if (bookmarkedBins != previousBookmarkBins.value) {
+                previousBookmarkBins.value = bookmarkedBins
 
-            if (bookmarkedBins.isNotEmpty()){
-                mapViewModel.updateBookmarkedItems(bookmarkedBins, selectedDistrict)
+                if (bookmarkedBins.isNotEmpty()) {
+                    mapViewModel.updateBookmarkedItems(bookmarkedBins, selectedDistrict)
+                }
             }
         }
     }
@@ -244,7 +252,12 @@ fun NaverMapScreen(
     LaunchedEffect(selectedCoordinates, naverMapHolder.value) {
         selectedCoordinates?.let { coordinates ->
             naverMapHolder.value?.let { naverMap ->
-                animateCameraToPosition(coordinates.latitude, coordinates.longitude, naverMap, FOCUS_ZOOM_LEVEL)
+                animateCameraToPosition(
+                    coordinates.latitude,
+                    coordinates.longitude,
+                    naverMap,
+                    FOCUS_ZOOM_LEVEL
+                )
                 // 좌표 이동 후 값 초기화
                 sharedViewModel.clearSelectedCoordinates()
             }
@@ -288,7 +301,11 @@ fun HandlePermissions(
     // Compose의 `LaunchedEffect`로 권한 요청 트리거
     LaunchedEffect(Unit) {
         //이미 권한이 있는 경우
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             setupNaverMapWithLocationTracking(naverMap, locationSource)
         } else { //권한이 없다면 권한 요청
             launcher.launch(
@@ -381,7 +398,12 @@ fun setupNaverMap(
 }
 
 //카메라 이동 함수
-fun animateCameraToPosition(latitude: Double, longitude: Double, naverMap: NaverMap, zoomLevel: Double = DEFAULT_ZOOM_LEVEL) {
+fun animateCameraToPosition(
+    latitude: Double,
+    longitude: Double,
+    naverMap: NaverMap,
+    zoomLevel: Double = DEFAULT_ZOOM_LEVEL
+) {
     naverMap.moveCamera(
         CameraUpdate.toCameraPosition(
             CameraPosition(

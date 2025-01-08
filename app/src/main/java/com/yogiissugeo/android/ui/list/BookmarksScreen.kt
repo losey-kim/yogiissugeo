@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -30,7 +29,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -42,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.paging.CombinedLoadStates
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil.compose.AsyncImage
@@ -52,6 +51,7 @@ import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.ui.component.BookmarkFilterChip
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.nav.NavigationItem
+import com.yogiissugeo.android.utils.navigation.navigateWithOptions
 
 
 //저장된 화면
@@ -79,8 +79,8 @@ fun BookmarksScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
-        contentPadding = PaddingValues(vertical = 16.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        contentPadding = PaddingValues(vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
@@ -103,19 +103,7 @@ fun BookmarksScreen(
 
         // 데이터가 비어 있을 경우
         if (bookmarkBins.itemCount == 0) {
-            when (bookmarkBins.loadState.refresh) {
-                is LoadState.Loading -> {// 로딩 중
-                    item { LoadingIndicator() }
-                }
-
-                is LoadState.NotLoading -> {// 데이터 없음
-                    item { EmptySavedList() }
-                }
-
-                is LoadState.Error -> { // 에러 발생
-                    item { ErrorMessage((bookmarkBins.loadState.refresh as LoadState.Error).error) }
-                }
-            }
+            item { EmptySavedList() }
         } else {
             // 데이터가 있을 경우 리스트로 표시
             items(
@@ -129,7 +117,7 @@ fun BookmarksScreen(
                             // 카드 클릭 시 좌표 저장
                             sharedViewModel.selectCoordinates(latLang)
                             // 지도로 이동
-                            navController.navigate(NavigationItem.Map.route)
+                            navController.navigateWithOptions(NavigationItem.Map.route)
                         },
                         onToggleBookmark = { binId ->
                             //북마크 제거 로직
@@ -148,35 +136,21 @@ fun BookmarksScreen(
                 }
             }
 
-            // 추가 상태 처리
-            bookmarkBins.apply {
-                when {
-                    // 로딩 상태
-                    loadState.refresh is LoadState.Loading -> {
-                        item { LoadingIndicator() }
-                    }
-                    // 오류 상태
-                    loadState.refresh is LoadState.Error -> {
-                        val e = loadState.refresh as LoadState.Error
-                        item { ErrorMessage(error = e.error) }
-                    }
-                    // 추가 데이터 로드 중
-                    loadState.append is LoadState.Loading -> {
-                        item { LoadingIndicator() }
-                    }
-                    // 추가 데이터 로드 오류 처리
-                    loadState.append is LoadState.Error -> {
-                        val e = loadState.append as LoadState.Error
-                        item {
-                            RetryButton(
-                                onClick = { bookmarkBins.retry() },
-                                errorMessage = e.error.localizedMessage
-                            )
-                        }
-                    }
+            // 로드 실패 시 재시도 버튼
+            if (bookmarkBins.loadState.append is LoadState.Error) {
+                item {
+                    RetryButton(
+                        onClick = { bookmarkBins.retry() },
+                    )
                 }
             }
         }
+    }
+
+    //로드 상태에 따른 UI
+    ShowLoadState(bookmarkBins.loadState){
+        // 로드 재시도
+        bookmarkBins.retry()
     }
 }
 
@@ -188,7 +162,7 @@ fun SetInformation(bookmarkCount: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
         Row(
             modifier = Modifier
@@ -367,38 +341,69 @@ fun EmptySavedList() {
 }
 
 /**
- * 로드 실패 시 데이터를 다시 시도할 수 있는 버튼 UI.
- * @param errorMessage 오류 메시지를 표시
+ * 로드 상태에 따른 UI
  */
 @Composable
-fun RetryButton(onClick: () -> Unit, errorMessage: String?) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = stringResource(R.string.bookmarks_error_message, errorMessage.toString()),
-            color = MaterialTheme.colorScheme.error
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = onClick) {
-            Text(text = stringResource(R.string.bookmarks_retry_load))
+fun ShowLoadState(loadState: CombinedLoadStates, onRetry: () -> Unit) {
+    when {
+        // 로드 중
+        loadState.refresh is LoadState.Loading || loadState.append is LoadState.Loading -> {
+            LoadingIndicator()
+        }
+
+        // 로드 실패
+        loadState.refresh is LoadState.Error -> {
+            ErrorMessage({
+                onRetry()
+            })
         }
     }
 }
 
 /**
- * 오류 메시지를 표시하는 Composable 함수.
+ * 로드 실패 시 데이터를 다시 시도할 수 있는 버튼 UI.
  */
 @Composable
-fun ErrorMessage(error: Throwable) {
-    Text(
-        text = stringResource(R.string.bookmarks_error_message, error.toString()),
-        color = MaterialTheme.colorScheme.error,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    )
+fun RetryButton(onClick: () -> Unit) {
+    IconButton(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { onClick() }
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_refresh),
+            contentDescription = null,
+        )
+    }
+}
+
+/**
+ * 오류 메시지 및 재시도 버튼
+ */
+@Composable
+fun ErrorMessage(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        //에러 메시지 출력
+        Text(
+            text = stringResource(R.string.error_unknown),
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        )
+
+        //재시도 버튼
+        RetryButton(onClick)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun showRetryButton() {
+    RetryButton({})
 }
 
 @Preview(showBackground = true)

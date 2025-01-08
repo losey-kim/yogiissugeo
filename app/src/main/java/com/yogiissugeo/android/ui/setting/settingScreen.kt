@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +39,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -107,7 +107,8 @@ fun SettingScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         //설정 아이템 출력
         itemsIndexed(categorizedSettings, key = { index, item ->
@@ -193,7 +194,7 @@ fun RecyclingInfoBottomSheet(
             onDismiss()
         },
         sheetState = sheetState,
-        containerColor = Color.White // 바탕색을 화이트로
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
     ) {
         Column(
             modifier = Modifier

@@ -52,7 +52,7 @@
 
     <!-- SavedScreen -->
     <string name="bookmarks_empty_error">아직 저장된 수거함이 없어요!</string>
-    <string name="bookmarks_empty_description">관심 있는 수거함을 저장해보세요.</string>
+    <string name="bookmarks_empty_description">수거함을 저장해보세요.</string>
     <string name="bookmarks_remove">저장 삭제</string>
     <string name="bookmarks_share">주소 공유하기</string>
     <string name="bookmarks_open_app">앱 열기</string>
