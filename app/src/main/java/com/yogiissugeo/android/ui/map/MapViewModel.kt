@@ -33,44 +33,17 @@ class MapViewModel @Inject constructor(
     private val _keyTagMapBookmarked = MutableStateFlow<MutableMap<ItemKey, ClothingBin>>(mutableMapOf())
 
     /**
-     * 처음에 지도 구동 시, 클러스터러가 아직 없으면 생성
-     * (이미 있으면 재생성하지 않음)
+     * 구별 클러스터 세팅
      */
-    fun initClustererIfNeeded(
-        onMarkerClick: (String) -> Unit
-    ) {
-        //구별 클러스터 초기화
-        if (_clustererDistrict.value == null) {
-            val newClusterer = Clusterer.Builder<ItemKey>()
-                // 클러스터 마커(집합 마커) 업데이트 로직
-                .clusterMarkerUpdater { info, marker ->
-                    updateDistrictClusterMarker(info, marker)
-                }
-                // 개별 마커(leaf) 업데이트 로직
-                .leafMarkerUpdater { info, marker ->
-                    updateDistrictLeafMarker(info, marker) { binId ->
-                        onMarkerClick(binId) // 마커 클릭 시 즐겨찾기 토글 등
-                    }
-                }
-                .build()
-            _clustererDistrict.value = newClusterer
-        }
+    fun setClustererDistrict(newClusterer: Clusterer<ItemKey>) {
+        _clustererDistrict.value = newClusterer
+    }
 
-        //북마크 클러스터 초기화
-        if (_clustererBookmarked.value == null) {
-            val cBookmarked = Clusterer.Builder<ItemKey>()
-                // 클러스터 마커(집합 마커) 업데이트 로직
-                .clusterMarkerUpdater { info, marker ->
-                    updateBookmarkClusterMarker(info, marker)
-                }
-                // 개별 마커(leaf) 업데이트 로직
-                .leafMarkerUpdater { info, marker ->
-                    updateBookmarkLeafMarker(info, marker) { binId ->
-                    }
-                }
-                .build()
-            _clustererBookmarked.value = cBookmarked
-        }
+    /**
+     * 북마크 클러스터 세팅
+     */
+    fun setClustererBookmark(newClusterer: Clusterer<ItemKey>) {
+        _clustererBookmarked.value = newClusterer
     }
 
     /**

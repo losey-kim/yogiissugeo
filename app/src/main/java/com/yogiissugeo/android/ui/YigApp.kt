@@ -25,11 +25,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
-import com.yogiissugeo.android.BuildConfig
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.ui.nav.AppNavHost
 import com.yogiissugeo.android.ui.nav.BottomNavigationBar
@@ -41,6 +41,7 @@ import com.yogiissugeo.android.utils.config.RemoteConfigManager
 fun AppEntryPoint(remoteConfigManager: RemoteConfigManager) {
     // 초기화 상태 관리
     val isInitialized = remember { mutableStateOf(false) }
+    val navController = rememberNavController()
 
     // 초기화 작업 실행
     LaunchedEffect(Unit) {
@@ -51,16 +52,17 @@ fun AppEntryPoint(remoteConfigManager: RemoteConfigManager) {
 
     // 초기화 상태에 따라 다른 화면 표시
     if (isInitialized.value) {
-        MainApp()  // 초기화 완료 후 메인 화면
+        MainApp(navController)  // 초기화 완료 후 메인 화면
     } else {
         SplashScreen() // 초기화 중 로딩 화면
     }
 }
 
 @Composable
-fun MainApp(modifier: Modifier = Modifier) {
-    val navController = rememberNavController()
-
+fun MainApp(
+    navController: NavHostController,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         modifier = modifier.safeDrawingPadding(),
         containerColor = Color.Transparent,

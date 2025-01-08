@@ -21,6 +21,9 @@ import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,16 +52,22 @@ import com.naver.maps.map.CameraPosition
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.clustering.Clusterer
 import com.naver.maps.map.util.FusedLocationSource
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
-import com.yogiissugeo.android.ui.component.ErrorMessage
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.component.DropDownMenuComponent
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
+import com.yogiissugeo.android.ui.component.showSnackBar
 import com.yogiissugeo.android.ui.list.BinListViewModel
 import com.yogiissugeo.android.ui.list.DistrictViewModel
 import com.yogiissugeo.android.ui.list.SharedMapViewModel
+import com.yogiissugeo.android.utils.cluster.ItemKey
+import com.yogiissugeo.android.utils.cluster.updateBookmarkClusterMarker
+import com.yogiissugeo.android.utils.cluster.updateBookmarkLeafMarker
+import com.yogiissugeo.android.utils.cluster.updateDistrictClusterMarker
+import com.yogiissugeo.android.utils.cluster.updateDistrictLeafMarker
 
 @Composable
 fun NaverMapScreen(
@@ -94,6 +103,11 @@ fun NaverMapScreen(
     // 선택 좌표 상태
     val selectedCoordinates by sharedViewModel.selectedCoordinates.collectAsState()
 
+    // SnackbarHostState 생성
+    val snackbarHostState = remember { SnackbarHostState() }
+    // 북마크 토글 결과 리소스 아이디
+    var bookmarkResultResId by remember { mutableStateOf<Int?>(null) }
+
     // MapView의 Lifecycle 관리
     ManageMapViewLifecycle(lifecycle, mapView)
 
@@ -126,10 +140,37 @@ fun NaverMapScreen(
                             mapViewModel.setCameraPosition(naverMap.cameraPosition)
                         }
 
-                        // 클러스터러가 없으면 초기화 (한 번만)
-                        mapViewModel.initClustererIfNeeded { binId ->
-                            // 마커 클릭 시 BinListViewModel에 북마크 토글.
-                            binListViewModel.toggleBookmark(binId)
+                        //구별 클러스터 초기화
+                        if (mapViewModel.clustererDistrict.value == null) {
+                            val newClustererDistrict = Clusterer.Builder<ItemKey>()
+                                // 클러스터 마커(집합 마커) 업데이트 로직
+                                .clusterMarkerUpdater { info, marker ->
+                                    updateDistrictClusterMarker(info, marker)
+                                }
+                                // 개별 마커(leaf) 업데이트 로직
+                                .leafMarkerUpdater { info, marker ->
+                                    updateDistrictLeafMarker(info, marker) { binId ->
+                                        // 마커 클릭 시 즐겨찾기 토글
+                                        binListViewModel.toggleBookmark(binId)
+                                    }
+                                }
+                                .build()
+                            mapViewModel.setClustererDistrict(newClustererDistrict)
+                        }
+
+                        //북마크 클러스터 초기화
+                        if (mapViewModel.clustererBookmarked.value == null) {
+                            val newClustererBookmark = Clusterer.Builder<ItemKey>()
+                                // 클러스터 마커(집합 마커) 업데이트 로직
+                                .clusterMarkerUpdater { info, marker ->
+                                    updateBookmarkClusterMarker(info, marker)
+                                }
+                                // 개별 마커(leaf) 업데이트 로직
+                                .leafMarkerUpdater { info, marker ->
+                                    updateBookmarkLeafMarker(info, marker)
+                                }
+                                .build()
+                            mapViewModel.setClustererBookmark(newClustererBookmark)
                         }
 
                         //클러스터를 강제로 다시 그리기 위해 map을 null로 설정
@@ -168,8 +209,7 @@ fun NaverMapScreen(
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton =
-            clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
+        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -198,10 +238,19 @@ fun NaverMapScreen(
             LoadingIndicator()
         }
 
-        // 에러 시 토스트메시지 출력
+        // 에러 시 스낵바 출력
         errorMessage?.let { resourceId ->
-            ErrorMessage(context, resourceId)
+            val errorMsg = stringResource(resourceId)
+            LaunchedEffect(resourceId) {
+                showSnackBar(snackbarHostState, errorMsg, SnackbarDuration.Short)
+            }
         }
+
+        // 스낵바 호스트 생성
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     // selectedDistrict가 변경될 때 호출하여 카메라 포지션 이동
@@ -261,6 +310,23 @@ fun NaverMapScreen(
                 // 좌표 이동 후 값 초기화
                 sharedViewModel.clearSelectedCoordinates()
             }
+        }
+    }
+
+    // 북마크 토글 결과에 따른 스낵바 텍스트 리소스 Id 저장
+    LaunchedEffect(Unit) {
+        binListViewModel.bookmarkToggleResult.collect { event ->
+            bookmarkResultResId = event.messageResId
+        }
+    }
+
+    //수거함 토글 결과 스낵바 출력
+    bookmarkResultResId?.let { resId ->
+        val message = stringResource(id = resId)
+        LaunchedEffect(resId) {
+            showSnackBar(snackbarHostState, message, SnackbarDuration.Short)
+            // 메시지 표시 후 상태를 초기화하여 다시 표시되지 않도록 함
+            bookmarkResultResId = null
         }
     }
 

@@ -23,10 +23,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -50,6 +57,7 @@ import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.ui.component.BookmarkFilterChip
 import com.yogiissugeo.android.ui.component.LoadingIndicator
+import com.yogiissugeo.android.ui.component.showSnackBar
 import com.yogiissugeo.android.ui.nav.NavigationItem
 import com.yogiissugeo.android.utils.navigation.navigateWithOptions
 
@@ -76,81 +84,112 @@ fun BookmarksScreen(
     // 현재 필터링된 결과의 갯수 관찰
     val bookmarkCount by binListViewModel.bookmarkCount.collectAsState()
 
-    LazyColumn(
+    // SnackbarHostState 생성
+    val snackbarHostState = remember { SnackbarHostState() }
+    // 북마크 토글 결과 리소스 아이디
+    var bookmarkResultResId by remember { mutableStateOf<Int?>(null) }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
-        contentPadding = PaddingValues(vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
-        item {
-            // 구 필터
-            BookmarkFilterChip(
-                districts = districts.map { it.displayNameRes },
-                selectedDistrict = selectedDistrict?.displayNameRes,
-                onDistrictSelected = { district ->
-                    //구 선택 시 데이터 로드
-                    binListViewModel.setSelectedApiSource(district)
-                }
-            )
-        }
-
-        //상단 고정
-        stickyHeader {
-            //총 갯수와 정렬기준 출력
-            SetInformation(bookmarkCount)
-        }
-
-        // 데이터가 비어 있을 경우
-        if (bookmarkBins.itemCount == 0) {
-            item { EmptySavedList() }
-        } else {
-            // 데이터가 있을 경우 리스트로 표시
-            items(
-                bookmarkBins.itemCount,
-                key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
-                val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
-                bin?.let {
-                    SavedCard(
-                        bin = it,
-                        onCardClick = { latLang ->
-                            // 카드 클릭 시 좌표 저장
-                            sharedViewModel.selectCoordinates(latLang)
-                            // 지도로 이동
-                            navController.navigateWithOptions(NavigationItem.Map.route)
-                        },
-                        onToggleBookmark = { binId ->
-                            //북마크 제거 로직
-                            binListViewModel.toggleBookmark(binId)
-                        },
-                        onOpenApp = { latLang, address ->
-                            //앱 열기 버튼
-                            savedCardViewModel.onNavigate(latLang, address)
-                        },
-                        onShareAddress = { address ->
-                            //공유 버튼
-                            savedCardViewModel.onShareAddress(address)
-                        },
-                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                    )
-                }
+        LazyColumn(
+            contentPadding = PaddingValues(vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                // 구 필터
+                BookmarkFilterChip(
+                    districts = districts.map { it.displayNameRes },
+                    selectedDistrict = selectedDistrict?.displayNameRes,
+                    onDistrictSelected = { district ->
+                        //구 선택 시 데이터 로드
+                        binListViewModel.setSelectedApiSource(district)
+                    }
+                )
             }
 
-            // 로드 실패 시 재시도 버튼
-            if (bookmarkBins.loadState.append is LoadState.Error) {
-                item {
-                    RetryButton(
-                        onClick = { bookmarkBins.retry() },
-                    )
+            //상단 고정
+            stickyHeader {
+                //총 갯수와 정렬기준 출력
+                SetInformation(bookmarkCount)
+            }
+
+            // 데이터가 비어 있을 경우
+            if (bookmarkBins.itemCount == 0) {
+                item { EmptySavedList() }
+            } else {
+                // 데이터가 있을 경우 리스트로 표시
+                items(
+                    bookmarkBins.itemCount,
+                    key = { index -> bookmarkBins[index]?.id ?: "" }) { index ->
+                    val bin = bookmarkBins[index] // LazyPagingItems에서 항목을 가져옴
+                    bin?.let {
+                        SavedCard(
+                            bin = it,
+                            onCardClick = { latLang ->
+                                // 카드 클릭 시 좌표 저장
+                                sharedViewModel.selectCoordinates(latLang)
+                                // 지도로 이동
+                                navController.navigateWithOptions(NavigationItem.Map.route)
+                            },
+                            onToggleBookmark = { binId ->
+                                //북마크 제거 로직
+                                binListViewModel.toggleBookmark(binId)
+                            },
+                            onOpenApp = { latLang, address ->
+                                //앱 열기 버튼
+                                savedCardViewModel.onNavigate(latLang, address)
+                            },
+                            onShareAddress = { address ->
+                                //공유 버튼
+                                savedCardViewModel.onShareAddress(address)
+                            },
+                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                        )
+                    }
+                }
+
+                // 로드 실패 시 재시도 버튼
+                if (bookmarkBins.loadState.append is LoadState.Error) {
+                    item {
+                        RetryButton(
+                            onClick = { bookmarkBins.retry() },
+                        )
+                    }
                 }
             }
         }
+
+        // 스낵바 호스트 생성
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     //로드 상태에 따른 UI
     ShowLoadState(bookmarkBins.loadState){
         // 로드 재시도
         bookmarkBins.retry()
+    }
+
+    // 북마크 추가 여부에 따른 스낵바 텍스트 리소스 Id 저장
+    LaunchedEffect(Unit) {
+        binListViewModel.bookmarkToggleResult.collect { event ->
+            bookmarkResultResId = event.messageResId
+        }
+    }
+
+    //수거함 토글 결고 스낵바 출력
+    bookmarkResultResId?.let { resId ->
+        val message = stringResource(id = resId)
+        LaunchedEffect(resId) {
+            showSnackBar(snackbarHostState, message, SnackbarDuration.Short)
+            // 메시지 표시 후 상태를 초기화하여 다시 표시되지 않도록 함
+            bookmarkResultResId = null
+        }
     }
 }
 

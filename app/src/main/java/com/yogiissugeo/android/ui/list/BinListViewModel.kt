@@ -6,18 +6,20 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
+import com.yogiissugeo.android.data.model.BookmarkType
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.repository.ClothingBinRepository
 import com.yogiissugeo.android.utils.network.ResourceException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -80,6 +82,12 @@ class BinListViewModel @Inject constructor(
     val allBookmarkedBins: Flow<List<ClothingBin>> = clothingBinRepository.getAllBookmarkedBins()
 
     /**
+     * 북마크 토글 결과 전달
+     */
+    private val _bookmarkToggleResult = MutableSharedFlow<ShowSnackbar>()
+    val bookmarkToggleResult = _bookmarkToggleResult.asSharedFlow()
+
+    /**
      * 에러 메시지를 저장하는 상태.
      */
     private val _errorMessage = MutableStateFlow<Int?>(null)
@@ -101,7 +109,7 @@ class BinListViewModel @Inject constructor(
     /**
      * 특정 구와 페이지의 의류 수거함 데이터를 가져옵니다.
      *
-     * @param district 요청할 구의 API 소스.
+     * @param apiSource 요청할 구의 API 소스.
      * @param page 요청할 페이지 번호.
      * @param perPage 한 페이지당 데이터 개수.
      */
@@ -110,7 +118,7 @@ class BinListViewModel @Inject constructor(
             _isLoading.value = true // 로딩 시작
             _errorMessage.value = null // 에러 메시지 초기화
 
-            try{
+            try {
                 //데이터를 가져옴
                 val result = clothingBinRepository.getOrFetchBins(apiSource, page, perPage)
                 result.onSuccess { bins ->
@@ -126,7 +134,7 @@ class BinListViewModel @Inject constructor(
                 }.onFailure {
                     handleApiFailure(it) // 에러 처리
                 }
-            } catch (e: Exception){
+            } catch (e: Exception) {
                 handleApiFailure(e)
             } finally {
                 _isLoading.value = false // 로딩 종료
@@ -135,7 +143,7 @@ class BinListViewModel @Inject constructor(
     }
 
     //구 선택정보 저장
-    fun setSelectedApiSource(apiSource: ApiSource?){
+    fun setSelectedApiSource(apiSource: ApiSource?) {
         _selectedApiSource.value = apiSource
     }
 
@@ -145,7 +153,20 @@ class BinListViewModel @Inject constructor(
      * @param binId toggle할 binId
      */
     fun toggleBookmark(binId: String) = viewModelScope.launch {
-        clothingBinRepository.toggleBookmark(binId)
+        try {
+            // 북마크 추가, 삭제
+            val bookmarkType = clothingBinRepository.toggleBookmark(binId)
+            // 북마크 추가, 삭제 여부에 따라 스낵바 출력 텍스트 리소스 아이디 저장
+            val messageResId = when (bookmarkType){
+                BookmarkType.ADD_SUCCESS -> R.string.bookmarks_add_success
+                BookmarkType.REMOVE_SUCCESS -> R.string.bookmarks_remove_success
+                BookmarkType.ERROR -> R.string.bookmarks_toggle_fail
+            }
+            _bookmarkToggleResult.emit(ShowSnackbar(messageResId, bookmarkType))
+        } catch (e: Exception) {
+            // 북마크 토글 실패
+            _bookmarkToggleResult.emit(ShowSnackbar(R.string.bookmarks_toggle_fail, BookmarkType.ERROR))
+        }
     }
 
     /**
@@ -185,4 +206,7 @@ class BinListViewModel @Inject constructor(
         val nextPage = _currentPage.value + 1
         loadDistrictBins(apiSource, nextPage, perPage) // 다음 페이지 데이터 로드
     }
+
+    // 북마크 토글 이벤트
+    data class ShowSnackbar(val messageResId: Int, val bookmarkType: BookmarkType)
 }

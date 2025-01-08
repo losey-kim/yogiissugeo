@@ -77,7 +77,6 @@ fun updateBookmarkClusterMarker(info: ClusterMarkerInfo, marker: Marker) {
 fun updateBookmarkLeafMarker(
     info: LeafMarkerInfo,
     marker: Marker,
-    onMarkerClick: (String) -> Unit
 ) {
     val itemData = info.tag as? ClothingBin
     marker.icon = OverlayImage.fromResource(R.drawable.ic_marker_bookmark)
@@ -88,10 +87,6 @@ fun updateBookmarkLeafMarker(
     marker.captionColor = Color.BLACK
     marker.captionHaloColor = Color.WHITE
     marker.subCaptionText = ""
-    marker.onClickListener = Overlay.OnClickListener {
-        itemData?.id?.let(onMarkerClick)
-        true
-    }
 }
 
 // ItemKey 생성 헬퍼

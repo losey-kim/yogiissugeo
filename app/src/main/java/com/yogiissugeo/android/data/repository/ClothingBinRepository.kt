@@ -11,12 +11,11 @@ import com.yogiissugeo.android.data.api.GeocodingApi
 import com.yogiissugeo.android.data.local.dao.BookmarkDao
 import com.yogiissugeo.android.data.local.dao.ClothingBinDao
 import com.yogiissugeo.android.data.local.dao.DistrictDataCountDao
-import com.yogiissugeo.android.data.local.model.Bookmark
 import com.yogiissugeo.android.data.model.ApiSource
+import com.yogiissugeo.android.data.model.BookmarkType
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.utils.common.AddressCorrector
-import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -198,9 +197,14 @@ class ClothingBinRepository @Inject constructor(
      *
      * @param binId toggle할 binId
      */
-    suspend fun toggleBookmark(binId: String){
+    suspend fun toggleBookmark(binId: String): BookmarkType {
         val isBookmark = bookmarkDao.toggleBookmark(binId)
         clothingBinDao.updateBookmarkStatus(binId, !isBookmark)
+        return if (isBookmark){ // 저장, 삭제 여부에 따라 BookmarkType return
+            BookmarkType.REMOVE_SUCCESS
+        } else {
+            BookmarkType.ADD_SUCCESS
+        }
     }
 
     /**
