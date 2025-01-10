@@ -36,7 +36,12 @@
         <!-- 애드몹 -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-4848324410383539~8452591731"/>
+            android:value="${ADMOB_APPLICATION_ID}"/>
+
+        <!-- 네이버 지도 SDK -->
+        <meta-data
+            android:name="com.naver.maps.map.CLIENT_ID"
+            android:value="${NAVER_MAP_CLIENT_ID}" />
 
         <!-- tools:replace 추가 -->
         <property

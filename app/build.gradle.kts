@@ -41,9 +41,11 @@ android {
 
         //API키 값 로컬에서 가져옴
         buildConfigField("String", "CLOTHING_BIN_API_KEY", getLocalProperty("CLOTHING_BIN_API_KEY"))
-        buildConfigField("String", "NAVER_MAP_CLIENT_ID", getLocalProperty("NAVER_MAP_CLIENT_ID"))
         buildConfigField("String", "NAVER_MAP_API_KEY", getLocalProperty("NAVER_MAP_API_KEY"))
         buildConfigField("String", "ADMOB_BANNER_AD", getLocalProperty("ADMOB_BANNER_AD"))
+        buildConfigField("String", "NAVER_MAP_CLIENT_ID", "\"${getLocalProperty("NAVER_MAP_CLIENT_ID")}\"")
+        manifestPlaceholders["NAVER_MAP_CLIENT_ID"] = getLocalProperty("NAVER_MAP_CLIENT_ID")
+        manifestPlaceholders["ADMOB_APPLICATION_ID"] = getLocalProperty("ADMOB_APPLICATION_ID")
     }
 
     buildTypes {

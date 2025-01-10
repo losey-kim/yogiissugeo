@@ -15,8 +15,5 @@ class ClothingBinApplication : Application() {
 
         //광고 초기화
         MobileAds.initialize(this@ClothingBinApplication)
-
-        //네이버 지도 SDK 초기화
-        NaverMapSdk.getInstance(this).client = NaverMapSdk.NaverCloudPlatformClient(BuildConfig.NAVER_MAP_CLIENT_ID)
     }
 }
