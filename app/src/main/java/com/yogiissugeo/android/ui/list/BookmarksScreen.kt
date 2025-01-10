@@ -170,7 +170,7 @@ fun BookmarksScreen(
     }
 
     //로드 상태에 따른 UI
-    ShowLoadState(bookmarkBins.loadState){
+    ShowLoadState(bookmarkBins.loadState) {
         // 로드 재시도
         bookmarkBins.retry()
     }
@@ -211,6 +211,7 @@ fun SetInformation(bookmarkCount: Int) {
             Text(
                 text = stringResource(R.string.bookmarks_get_count, bookmarkCount),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
@@ -220,6 +221,7 @@ fun SetInformation(bookmarkCount: Int) {
                 text = stringResource(R.string.bookmarks_sort_recently),
                 textAlign = TextAlign.End,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
         }

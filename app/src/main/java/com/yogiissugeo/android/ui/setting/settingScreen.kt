@@ -152,10 +152,12 @@ fun CategoryHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
+
     )
 }
 
@@ -174,7 +176,11 @@ fun SettingRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text(text = setting.title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = setting.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
