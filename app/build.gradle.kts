@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.firebase.perf)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.devtools.ksp)
 }
 
 val localPropertiesFile = rootProject.file("local.properties")
@@ -129,7 +130,7 @@ dependencies {
     implementation(libs.androidx.room.common)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.paging)
-    kapt(libs.androidx.room.compiler)
+    ksp(libs.androidx.room.compiler)
 
     //Firebase
     implementation(platform(libs.firebase.bom))

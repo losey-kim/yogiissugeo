@@ -110,9 +110,6 @@ enum class ApiSource(
         get() = csvName != null
 
     companion object {
-        // CSV 소스만 필터링하여 그룹화(현재 노원구, 마포구, 은평구, 중구)
-        val CSV_SOURCES = entries.filter { it.isCsvSource }.toSet()
-
         //csv파일 파서
         val csvParsers: Map<ApiSource, (Int, Array<String>) -> ClothingBin?> = mapOf(
             //노원구

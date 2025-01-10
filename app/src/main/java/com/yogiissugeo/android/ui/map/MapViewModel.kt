@@ -7,10 +7,6 @@ import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.utils.cluster.ItemKey
 import com.yogiissugeo.android.utils.cluster.createItemKey
-import com.yogiissugeo.android.utils.cluster.updateBookmarkClusterMarker
-import com.yogiissugeo.android.utils.cluster.updateBookmarkLeafMarker
-import com.yogiissugeo.android.utils.cluster.updateDistrictClusterMarker
-import com.yogiissugeo.android.utils.cluster.updateDistrictLeafMarker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -150,7 +150,7 @@ annotation class ThemePreviews
 @ThemePreviews
 @Composable
 fun BackgroundDefault() {
-    YogiIssugeoTheme() {
+    YogiIssugeoTheme {
         YigBackground(Modifier.size(100.dp), content = {})
     }
 }
@@ -158,7 +158,7 @@ fun BackgroundDefault() {
 @ThemePreviews
 @Composable
 fun GradientBackgroundDefault() {
-    YogiIssugeoTheme() {
+    YogiIssugeoTheme {
         YigGradientBackground(Modifier.size(100.dp), content = {})
     }
 }

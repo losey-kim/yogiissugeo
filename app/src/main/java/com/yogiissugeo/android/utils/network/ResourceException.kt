@@ -9,5 +9,5 @@ import androidx.annotation.StringRes
  */
 class ResourceException(
     @StringRes val errorResId: Int, // 에러 메시지 리소스 ID
-    val errorMessage: String? = null // 선택적 추가 메시지
+    private val errorMessage: String? = null // 선택적 추가 메시지
 ) : Exception()

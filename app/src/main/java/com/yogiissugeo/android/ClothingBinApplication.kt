@@ -2,8 +2,6 @@ package com.yogiissugeo.android
 
 import android.app.Application
 import com.google.android.gms.ads.MobileAds
-import com.naver.maps.map.NaverMapSdk
-import com.yogiissugeo.android.utils.config.RemoteConfigKeys
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp

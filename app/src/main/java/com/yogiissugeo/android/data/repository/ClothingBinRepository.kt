@@ -16,7 +16,6 @@ import com.yogiissugeo.android.data.model.BookmarkType
 import com.yogiissugeo.android.data.model.ClothingBin
 import com.yogiissugeo.android.data.model.GeocodingResponse
 import com.yogiissugeo.android.utils.common.AddressCorrector
-import com.yogiissugeo.android.utils.config.RemoteConfigManager
 import com.yogiissugeo.android.utils.network.safeApiCall
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +30,6 @@ import kotlin.math.ceil
 /**
  * 의류 수거함 데이터를 관리하는 Repository 클래스
  *
- * @property remoteConfig Firebase Remote Config에서 설정 값을 가져오는 객체
  * @property apiHandler 의류 수거함 관련 API 호출을 처리하는 핸들러 객체
  * @property geocodingApi 주소를 좌표로 변환하는 Geocoding API 호출을 처리하는 객체
  * @property clothingBinDao 의류 수거함 데이터를 저장하고 불러오는 DAO 객체
@@ -39,7 +37,6 @@ import kotlin.math.ceil
  * @property bookmarkDao 저장한 수거함 정보를 관리하는 DAO 객체
  */
 class ClothingBinRepository @Inject constructor(
-    private val remoteConfigManager: RemoteConfigManager,
     private val apiHandler: ClothingBinApiHandler,
     private val geocodingApi: GeocodingApi,
     private val clothingBinDao: ClothingBinDao,
@@ -180,7 +177,7 @@ class ClothingBinRepository @Inject constructor(
     /**
      * 북마크된 수거함 갯수를 가져옴
      */
-    suspend fun getBookmarkBinsCount(district: String? = null): Flow<Int> {
+    fun getBookmarkBinsCount(district: String? = null): Flow<Int> {
         return clothingBinDao.getBookmarkBinsCount(district)
     }
 
@@ -324,7 +321,7 @@ class ClothingBinRepository @Inject constructor(
     }
 
     //전체 페이지 수를 가져옴
-    suspend fun getTotalCount(apiSource: ApiSource): Int {
+    private suspend fun getTotalCount(apiSource: ApiSource): Int {
         return districtDataCountDao.getTotalCount(apiSource.name)?: 0
     }
 

@@ -1,5 +1,6 @@
 package com.yogiissugeo.android.ui.list
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -208,5 +209,5 @@ class BinListViewModel @Inject constructor(
     }
 
     // 북마크 토글 이벤트
-    data class ShowSnackbar(val messageResId: Int, val bookmarkType: BookmarkType)
+    data class ShowSnackbar(@StringRes val messageResId: Int, val bookmarkType: BookmarkType)
 }

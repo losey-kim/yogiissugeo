@@ -394,9 +394,9 @@ fun ShowLoadState(loadState: CombinedLoadStates, onRetry: () -> Unit) {
 
         // 로드 실패
         loadState.refresh is LoadState.Error -> {
-            ErrorMessage({
+            ErrorMessage {
                 onRetry()
-            })
+            }
         }
     }
 }
@@ -443,13 +443,13 @@ fun ErrorMessage(onClick: () -> Unit) {
 
 @Preview(showBackground = true)
 @Composable
-fun showRetryButton() {
-    RetryButton({})
+fun ShowRetryButton() {
+    RetryButton {}
 }
 
 @Preview(showBackground = true)
 @Composable
-fun showSetInformationPreview() {
+fun ShowSetInformationPreview() {
     SetInformation(100)
 }
 
