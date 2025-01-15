@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import retrofit2.Response
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.io.InputStreamReader
 import javax.inject.Inject
@@ -105,7 +106,7 @@ class ClothingBinRepository @Inject constructor(
     private suspend fun loadBinsFromCsv(apiSource: ApiSource, perPage: Int): Result<List<ClothingBin>> = withContext(Dispatchers.IO) {
         try {
             val csvFileName = apiSource.csvName
-                ?: return@withContext Result.failure(IllegalStateException("CSV 파일을 찾을 수 없음."))
+                ?: return@withContext Result.failure(FileNotFoundException("CSV 파일을 찾을 수 없음."))
 
             // 1. CSV 파일 열기
             context.assets.open(csvFileName).use { inputStream ->
@@ -242,7 +243,7 @@ class ClothingBinRepository @Inject constructor(
                 correctedAddress?.let { address ->
                     getCoordinates(address).fold(
                         onSuccess = { geoData ->
-                            geoData.addresses.firstOrNull()?.let { coordinates ->
+                            geoData.addresses?.firstOrNull()?.let { coordinates ->
                                 // 위도/경도를 업데이트한 새 객체 반환
                                 bin.copy(
                                     address = address,
