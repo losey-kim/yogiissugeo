@@ -13,10 +13,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -56,6 +61,7 @@ import com.naver.maps.map.clustering.Clusterer
 import com.naver.maps.map.util.FusedLocationSource
 import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
+import com.yogiissugeo.android.data.model.Region
 import com.yogiissugeo.android.ui.component.LoadingIndicator
 import com.yogiissugeo.android.ui.component.DropDownMenuComponent
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
@@ -85,7 +91,7 @@ fun NaverMapScreen(
     val supportDistricts by districtViewModel.districts.collectAsState() // 지원하는 구 목록 가져오기
     val isLoading by binListViewModel.isLoading.collectAsState()
     val errorMessage by binListViewModel.errorMessage.collectAsState()
-    val selectedDistrict by binListViewModel.selectedApiSource.collectAsState()
+    val selectedApiSource by binListViewModel.selectedApiSource.collectAsState()
     val currentPage by binListViewModel.currentPage.collectAsState()
     val totalPage by binListViewModel.totalPage.collectAsState()
 
@@ -98,7 +104,7 @@ fun NaverMapScreen(
     val isMapInteracting = rememberSaveable { mutableStateOf(false) } // 지도 조작 상태
     val previousClothingBins = rememberSaveable { mutableStateOf(clothingBins) }  //의류수거함 값
     val previousBookmarkBins = rememberSaveable { mutableStateOf(clothingBins) }  //저장된 의류수거함 값
-    val previousDistrict = rememberSaveable { mutableStateOf(selectedDistrict) }
+    val previousDistrict = rememberSaveable { mutableStateOf(selectedApiSource) }
 
     // 선택 좌표 상태
     val selectedCoordinates by sharedViewModel.selectedCoordinates.collectAsState()
@@ -107,6 +113,10 @@ fun NaverMapScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     // 북마크 토글 결과 리소스 아이디
     var bookmarkResultResId by remember { mutableStateOf<Int?>(null) }
+
+    // 상위 지역 선택 상태 (초기값은 null)
+    var selectedRegion by rememberSaveable { mutableStateOf<Region?>(null) }
+    var selectedDistrict by rememberSaveable { mutableStateOf<ApiSource?>(null) }
 
     // MapView의 Lifecycle 관리
     ManageMapViewLifecycle(lifecycle, mapView)
@@ -192,24 +202,31 @@ fun NaverMapScreen(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            // 구 선택 드롭다운 메뉴
-            DistrictDropdownMenu(
-                districtList = supportDistricts.map { it.displayNameRes },
-                selectedDistrict = selectedDistrict?.displayNameRes,
-                onDistrictSelected = { selectedName ->
-                    //구 선택 시 클러스터 초기화
-                    mapViewModel.clearAll()
-                    val selectedSource =
-                        ApiSource.entries.first { it.displayNameRes == selectedName }
-                    //초기 데이터 로드
-                    binListViewModel.onDistrictSelected(selectedSource)
+            // 드롭다운 메뉴를 통해 상위 지역 선택 후 해당 지역의 상세지역(구/시)를 선택할 수 있도록 함.
+            LocationDropdownMenu(
+                regionList = Region.entries, // 상위 지역 목록
+                supportDistricts = supportDistricts, // 지원하는 상세지역
+                selectedRegion = selectedRegion, // 현재 선택된 상위 지역 상태
+                selectedDistrict = selectedDistrict, // 현재 선택된 상세지역 상태
+                onRegionSelected = { region ->  // 상위 지역이 선택되었을 때 호출되는 콜백
+                    // 상위 지역 선택 시 처리할 로직
+                    mapViewModel.clearAll()  // 지도 클러스터 초기화 등
+                    selectedRegion = region // 선택된 상위 지역 상태 업데이트
+                    selectedDistrict = null  // 지역이 변경되면 상세지역 선택은 초기화
+                },
+                onDistrictSelected = { district ->
+                    // 상세지역(구/시) 선택 시 처리할 로직
+                    mapViewModel.clearAll()  // 지도 클러스터 초기화 등
+                    selectedDistrict = district // 선택된 상세지역 상태 업데이트
+                    binListViewModel.onDistrictSelected(district)  // 상세지역에 맞는 초기 데이터를 로드합니다.
                 },
                 modifier = Modifier.align(Alignment.TopCenter)
             )
         }
 
         //더보기 버튼(데이터 있을 때, 전체페이지 아닐 때 출력)
-        val shouldShowMoreButton = clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
+        val shouldShowMoreButton =
+            clothingBins.isNotEmpty() && currentPage != totalPage && !isMapInteracting.value
         AnimatedVisibility(
             visible = shouldShowMoreButton,
             enter = fadeIn(),
@@ -254,10 +271,10 @@ fun NaverMapScreen(
     }
 
     // selectedDistrict가 변경될 때 호출하여 카메라 포지션 이동
-    LaunchedEffect(selectedDistrict) {
+    LaunchedEffect(selectedApiSource) {
         //recomposition으로 재호출 되는 것 방지
-        if (previousDistrict.value != selectedDistrict) {
-            previousDistrict.value = selectedDistrict
+        if (previousDistrict.value != selectedApiSource) {
+            previousDistrict.value = selectedApiSource
             // 의류수거함이 있으면 첫 번째 위치로 이동
             if (clothingBins.isNotEmpty()) {
                 clothingBins.first().longitude?.toDoubleOrNull()?.let { lon ->
@@ -291,7 +308,7 @@ fun NaverMapScreen(
                 previousBookmarkBins.value = bookmarkedBins
 
                 if (bookmarkedBins.isNotEmpty()) {
-                    mapViewModel.updateBookmarkedItems(bookmarkedBins, selectedDistrict)
+                    mapViewModel.updateBookmarkedItems(bookmarkedBins, selectedApiSource)
                 }
             }
         }
@@ -385,25 +402,34 @@ fun HandlePermissions(
 }
 
 /**
- * 구 선택을 위한 드롭다운 메뉴 컴포저블.
+ * 지역 선택 드롭다운 메뉴
  *
- * @param districtList 구 이름의 리소스 ID 리스트.
- * @param selectedDistrict 현재 선택된 구의 리소스 ID. 선택되지 않은 경우 빈 값.
- * @param onDistrictSelected 사용자가 구를 선택했을 때 호출되는 콜백. 선택된 구의 리소스 ID를 반환.
+ * 이 메뉴는 두 단계로 구성됨.
+ * 1. 상위 지역(예: 서울, 경기도, 경상남도) 선택 모드
+ * 2. 선택된 상위 지역에 해당하는 상세지역(구/시) 선택 모드
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DistrictDropdownMenu(
-    districtList: List<Int>, // 드롭다운에 표시할 구 이름의 리소스 ID 리스트
-    @StringRes selectedDistrict: Int?, // 현재 선택된 구의 리소스 ID
-    onDistrictSelected: (Int) -> Unit, // 구를 선택했을 때 호출되는 콜백
-    modifier: Modifier
+fun LocationDropdownMenu(
+    regionList: List<Region>, // 상위 지역
+    supportDistricts: List<ApiSource>, // 지원하는 상세 지역
+    selectedRegion: Region?, // 현재 선택된 상위 지역
+    selectedDistrict: ApiSource?, // 현재 선택된 상세 지역
+    onRegionSelected: (Region) -> Unit, // 상위 지역 선택 시 콜백
+    onDistrictSelected: (ApiSource) -> Unit, // 상세 지역 선택 시 콜백
+    modifier: Modifier = Modifier
 ) {
-    // 드롭다운 메뉴 확장 여부를 관리하는 상태
+    // 드롭다운 확장 여부
     var expanded by rememberSaveable { mutableStateOf(false) }
+    // false: 상위 지역(서울/경기도/경상남도) 선택 모드, true: 상세지역(구/시) 선택 모드
+    var inDistrictMode by rememberSaveable { mutableStateOf(false) }
 
-    // 선택된 구 이름
-    val selectedDistrictText = stringResource(selectedDistrict ?: R.string.select_district)
+    // 버튼에 표시할 텍스트: 상세지역 선택 시 상세지역, 그렇지 않으면 상위 지역 또는 "지역 선택"
+    val displayText = when {
+        selectedDistrict != null -> stringResource(selectedDistrict.displayNameRes)
+        selectedRegion != null -> stringResource(selectedRegion.displayNameRes)
+        else -> stringResource(R.string.select_region)
+    }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -411,34 +437,66 @@ fun DistrictDropdownMenu(
         modifier = modifier.padding(top = 24.dp)
     ) {
         ElevatedButton(
-            onClick = {
-            },
+            onClick = { },
             colors = ButtonDefaults.elevatedButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             elevation = ButtonDefaults.elevatedButtonElevation(8.dp),
-            modifier = modifier
-                .menuAnchor()
+            modifier = modifier.menuAnchor()
         ) {
             //드롭다운 버튼
-            DropDownButtonComponent(selectedDistrictText, expanded)
+            DropDownButtonComponent(displayText, expanded)
         }
 
-        // 드롭다운 메뉴
-        DropDownMenuComponent(
-            list = districtList,
+        DropdownMenu(
             expanded = expanded,
+            onDismissRequest = {
+                // 드롭다운이 닫힐 때, 확장 상태와 내부 모드를 초기화
+                expanded = false
+                inDistrictMode = false
+            },
             modifier = Modifier
                 .exposedDropdownSize(true)
-                .height(200.dp),
-            onDismissRequest = { expanded = false },
-            onMenuSelected = { district ->
-                //항목 클릭
-                onDistrictSelected(district)
-                expanded = false
+                .height(200.dp)
+        ) {
+            if (!inDistrictMode) {
+
+                // 1단계: 상위 지역 선택 모드
+                regionList.forEach { region ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(region.displayNameRes)) },
+                        onClick = {
+                            // 상위 지역 선택 시 콜백 호출
+                            onRegionSelected(region)
+                            // 상위 지역 선택 후 상세지역 모드로 전환
+                            inDistrictMode = true
+                        }
+                    )
+                }
+            } else {
+                // 2단계: 상세지역(구/시) 선택 모드
+                // 맨 위에 '뒤로' 버튼 추가하여 상위 지역 선택으로 돌아갈 수 있도록 함.
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.select_previous)) },
+                    onClick = { inDistrictMode = false }
+                )
+                // 선택된 상위 지역에 해당하는 상세지역 리스트 표시
+                selectedRegion?.let { region ->
+                    supportDistricts.filter { it.region == region }
+                        .forEach { district ->
+                            DropdownMenuItem(
+                                // 상세지역 선택 시 콜백 호출
+                                text = { Text(stringResource(district.displayNameRes)) },
+                                onClick = {
+                                    onDistrictSelected(district)
+                                    expanded = false  // 상세지역 선택 후 드롭다운 닫기
+                                }
+                            )
+                        }
+                }
             }
-        )
+        }
     }
 }
 
