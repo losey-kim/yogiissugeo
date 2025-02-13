@@ -28,6 +28,7 @@
     <string name="district_all">전체</string>
     <string name="seoul">서울시</string>
     <string name="gyeonggi">경기도</string>
+    <string name="gangwon">강원도</string>
     <string name="gyeongsangnam">경상남도</string>
     <string name="gangnam">강남구</string>
     <string name="gangdong">강동구</string>
@@ -53,6 +54,8 @@
     <string name="junggu">중구</string>
     <string name="jungnang">중랑구</string>
     <string name="changwon">창원시</string>
+    <string name="suwon">수원시</string>
+    <string name="chuncheon">춘천시</string>
     <!-- 지역 이름 -->
 
     <!-- NaverMapScreen -->

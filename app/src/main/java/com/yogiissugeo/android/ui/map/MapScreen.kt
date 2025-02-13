@@ -7,16 +7,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
@@ -63,7 +59,6 @@ import com.yogiissugeo.android.R
 import com.yogiissugeo.android.data.model.ApiSource
 import com.yogiissugeo.android.data.model.Region
 import com.yogiissugeo.android.ui.component.LoadingIndicator
-import com.yogiissugeo.android.ui.component.DropDownMenuComponent
 import com.yogiissugeo.android.ui.component.DropDownButtonComponent
 import com.yogiissugeo.android.ui.component.showSnackBar
 import com.yogiissugeo.android.ui.list.BinListViewModel
@@ -424,6 +419,10 @@ fun LocationDropdownMenu(
     // false: 상위 지역(서울/경기도/경상남도) 선택 모드, true: 상세지역(구/시) 선택 모드
     var inDistrictMode by rememberSaveable { mutableStateOf(false) }
 
+    // 리스트 한글 오름차순으로 정렬
+    val context = LocalContext.current
+    val sortedRegionList = regionList.sortedBy { context.getString(it.displayNameRes) }
+
     // 버튼에 표시할 텍스트: 상세지역 선택 시 상세지역, 그렇지 않으면 상위 지역 또는 "지역 선택"
     val displayText = when {
         selectedDistrict != null -> stringResource(selectedDistrict.displayNameRes)
@@ -461,9 +460,8 @@ fun LocationDropdownMenu(
                 .height(200.dp)
         ) {
             if (!inDistrictMode) {
-
-                // 1단계: 상위 지역 선택 모드
-                regionList.forEach { region ->
+                // 상위 지역 선택 모드
+                sortedRegionList.forEach { region ->
                     DropdownMenuItem(
                         text = { Text(stringResource(region.displayNameRes)) },
                         onClick = {
@@ -475,7 +473,7 @@ fun LocationDropdownMenu(
                     )
                 }
             } else {
-                // 2단계: 상세지역(구/시) 선택 모드
+                // 상세지역(구/시) 선택 모드
                 // 맨 위에 '뒤로' 버튼 추가하여 상위 지역 선택으로 돌아갈 수 있도록 함.
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.select_previous)) },
@@ -483,17 +481,21 @@ fun LocationDropdownMenu(
                 )
                 // 선택된 상위 지역에 해당하는 상세지역 리스트 표시
                 selectedRegion?.let { region ->
-                    supportDistricts.filter { it.region == region }
-                        .forEach { district ->
-                            DropdownMenuItem(
-                                // 상세지역 선택 시 콜백 호출
-                                text = { Text(stringResource(district.displayNameRes)) },
-                                onClick = {
-                                    onDistrictSelected(district)
-                                    expanded = false  // 상세지역 선택 후 드롭다운 닫기
-                                }
-                            )
-                        }
+                    supportDistricts.filter {
+                        it.region == region
+                    }.sortedBy {
+                        // 오름차순 정렬
+                        context.getString(it.displayNameRes)
+                    }.forEach { district ->
+                        DropdownMenuItem(
+                            // 상세지역 선택 시 콜백 호출
+                            text = { Text(stringResource(district.displayNameRes)) },
+                            onClick = {
+                                onDistrictSelected(district)
+                                expanded = false  // 상세지역 선택 후 드롭다운 닫기
+                            }
+                        )
+                    }
                 }
             }
         }

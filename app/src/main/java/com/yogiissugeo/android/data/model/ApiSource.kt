@@ -132,6 +132,16 @@ enum class ApiSource(
         region = Region.GYEONGSANGNAM,
         csvName = "bin_list_changwon.csv",
         displayNameRes = R.string.changwon,
+    ),
+    SUWON(
+        region = Region.GYEONGGI,
+        endpoint = "15126963/v1/uddi:f39506e1-51ab-415f-999e-be88069770c8",
+        displayNameRes = R.string.suwon,
+    ),
+    CHUNCHEON(
+        region = Region.GANGWON,
+        endpoint = "15108522/v1/uddi:6162e4f3-2295-4b88-951c-e7663f4404f3",
+        displayNameRes = R.string.chuncheon,
     );
 
     // csvName이 null이 아니면 CSV 소스임

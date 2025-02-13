@@ -17,13 +17,11 @@ class ClothingBinParser(private val apiSource: ApiSource) {
         ApiSource.GANGBUK to KeyMapping("의류수거함관리코드", "도로명주소", "위도", "경도"),
         ApiSource.GANGSEO to KeyMapping("관리번호", "설치장소(도로명주소)", "위도", "경도"),
         ApiSource.GWANAK to KeyMapping("의류수거함", "위치", "위도", "경도"),
-        ApiSource.GWANGJIN to KeyMapping("지번주소", "도로명주소", "위도", "경도"),
         ApiSource.GURO to KeyMapping("연번", "주소", null, null),
-        ApiSource.DONGJAK to KeyMapping("연번", "주소", "위도", "경도"),
         ApiSource.SEODAEMUN to KeyMapping("관리번호", "설치장소(도로명)", "위도", "경도"),
         ApiSource.SEONGDONG to KeyMapping("순번", "설치장소", "위도", "경도"),
-        ApiSource.SEONGBUK to KeyMapping("연번", "도로명주소", "위도", "경도"),
-        ApiSource.SONGPA to KeyMapping("연번", "설치장소", "위도", "경도")
+        ApiSource.SONGPA to KeyMapping("연번", "설치장소", "위도", "경도"),
+        ApiSource.SUWON to KeyMapping("도로명 주소", "도로명 주소", "위도", "경도")
     )
 
     // 동일한 키 매핑을 사용하는 ApiSource 그룹 정의
@@ -33,7 +31,7 @@ class ClothingBinParser(private val apiSource: ApiSource) {
             ApiSource.YANGCHEON, ApiSource.YEONGDEUNGPO, ApiSource.JONGNO // 광진구와 동일한 키 매핑
         ) to KeyMapping("지번주소", "도로명주소", "위도", "경도"),
         setOf(
-            ApiSource.SEONGBUK, ApiSource.JUNGNANG // 성북구와 동일한 키 매핑
+            ApiSource.SEONGBUK, ApiSource.JUNGNANG, ApiSource.CHUNCHEON // 성북구와 동일한 키 매핑
         ) to KeyMapping("연번", "도로명주소", "위도", "경도"),
         setOf(
             ApiSource.DONGDAEMUN, ApiSource.DONGJAK // 동대문구와 동일한 키 매핑
