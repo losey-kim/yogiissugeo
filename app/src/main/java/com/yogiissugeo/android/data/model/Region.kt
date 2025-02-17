@@ -7,5 +7,6 @@ enum class Region(@StringRes val displayNameRes: Int) {
     SEOUL(R.string.seoul),
     GYEONGGI(R.string.gyeonggi),
     GANGWON(R.string.gangwon),
-    GYEONGSANGNAM(R.string.gyeongsangnam)
+    GYEONGSANGNAM(R.string.gyeongsangnam),
+    DAEJEON(R.string.daejeon)
 }

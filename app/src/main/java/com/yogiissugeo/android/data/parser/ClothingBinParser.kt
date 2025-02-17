@@ -20,8 +20,8 @@ class ClothingBinParser(private val apiSource: ApiSource) {
         ApiSource.GURO to KeyMapping("연번", "주소", null, null),
         ApiSource.SEODAEMUN to KeyMapping("관리번호", "설치장소(도로명)", "위도", "경도"),
         ApiSource.SEONGDONG to KeyMapping("순번", "설치장소", "위도", "경도"),
-        ApiSource.SONGPA to KeyMapping("연번", "설치장소", "위도", "경도"),
-        ApiSource.SUWON to KeyMapping("도로명 주소", "도로명 주소", "위도", "경도")
+        ApiSource.SUWON to KeyMapping("도로명 주소", "도로명 주소", "위도", "경도"),
+        ApiSource.DJ_DAEDEOK to KeyMapping("관리번호", "소재지지번주소", "위도", "경도"),
     )
 
     // 동일한 키 매핑을 사용하는 ApiSource 그룹 정의
@@ -35,7 +35,10 @@ class ClothingBinParser(private val apiSource: ApiSource) {
         ) to KeyMapping("연번", "도로명주소", "위도", "경도"),
         setOf(
             ApiSource.DONGDAEMUN, ApiSource.DONGJAK // 동대문구와 동일한 키 매핑
-        ) to KeyMapping("연번", "주소", "위도", "경도")
+        ) to KeyMapping("연번", "주소", "위도", "경도"),
+        setOf(
+            ApiSource.SONGPA, ApiSource.DJ_SEO // 송파구와 동일한 키 매핑
+        ) to KeyMapping("연번", "설치장소", "위도", "경도")
     )
 
     /**

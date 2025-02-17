@@ -457,7 +457,7 @@ fun LocationDropdownMenu(
             },
             modifier = Modifier
                 .exposedDropdownSize(true)
-                .height(200.dp)
+                .height(250.dp)
         ) {
             if (!inDistrictMode) {
                 // 상위 지역 선택 모드
